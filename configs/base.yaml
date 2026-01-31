@@ -1,0 +1,10 @@
+project:
+  name: streaming_churn
+  version: 1.0
+
+runtime:
+  random_state: 42
+
+business:
+  churn_threshold: 0.7
+  ltv_months: 12

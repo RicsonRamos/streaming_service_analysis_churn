@@ -1,0 +1,11 @@
+paths:
+  data:
+    raw: data/raw/streaming.csv
+    interim: data/interim/
+    processed: data/processed/streaming_clean.csv
+
+  models:
+    artifacts: models/artifacts/
+    churn_model: models/artifacts/churn_model_v1.joblib
+
+  reports: reports/
