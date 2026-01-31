@@ -1,0 +1,25 @@
+# Ambientes Virtuais
+.venv/
+venv/
+env/
+bin/
+obj/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Dados e Modelos (Geralmente não enviamos dados brutos ou modelos pesados)
+# Remova as linhas abaixo se quiser enviar o .joblib para o GitHub
+models/*.joblib
+data/raw/*.csv
+
+# Streamlit e IDEs
+.streamlit/
+.vscode/
+.idea/
+.DS_Store
+
+# Logs
+*.log
