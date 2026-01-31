@@ -1,0 +1,28 @@
+name: Docker Build Check
+
+# O que dispara a automação:
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout do código
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build da Imagem (Teste)
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: false # Aqui ele apenas testa se o build passa, sem publicar ainda
+        tags: streaming-churn-app:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
