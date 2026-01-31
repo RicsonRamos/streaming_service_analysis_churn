@@ -4,6 +4,7 @@ project:
 
 runtime:
   random_state: 42
+  test_size: 0.2
 
 business:
   churn_threshold: 0.7
