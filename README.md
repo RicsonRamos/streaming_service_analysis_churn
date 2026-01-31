@@ -1,110 +1,86 @@
-# 🛡️ Streaming Service Churn Radar: Da Análise à Produção
+# 🛡️ Streaming Service Churn Radar  
+### An End-to-End Data Science Project with Business Impact
 
-Este repositório contém uma solução completa de ciência de dados para previsão e gestão de **Churn** (cancelamento de assinaturas). O projeto percorre todo o ciclo de vida de um produto de dados: desde a análise exploratória em Notebooks, passando pela engenharia de software no pipeline de treinamento, até a entrega de um Dashboard interativo.
+This project showcases an **end-to-end data science solution** designed to **reduce customer churn and protect recurring revenue** in a subscription-based streaming service.
 
-## 📋 Sumário
-
-* [Visão Geral do Projeto](https://www.google.com/search?q=%23-vis%C3%A3o-geral-do-projeto)
-* [Estrutura do Repositório](https://www.google.com/search?q=%23-estrutura-do-reposit%C3%B3rio)
-* [Arquitetura da Solução](https://www.google.com/search?q=%23-arquitetura-da-solu%C3%A7%C3%A3o)
-* [Principais Insights](https://www.google.com/search?q=%23-principais-insights)
-* [Como Executar](https://www.google.com/search?q=%23-como-executar)
-* [A Interface Streamlit](https://www.google.com/search?q=%23-a-interface-streamlit)
+It demonstrates not only model development, but also **product thinking**, **business metrics**, and **decision support**, bridging the gap between data science and real-world impact.
 
 ---
 
-## 🎯 Visão Geral do Projeto
+## 🎯 Business Problem
 
-O objetivo principal é reduzir o faturamento perdido por cancelamentos de assinaturas. Utilizando o algoritmo **XGBoost**, o modelo analisa comportamentos históricos para atribuir uma pontuação de risco a cada cliente, permitindo que a equipe de marketing tome decisões baseadas em dados.
+Customer churn is one of the main drivers of revenue loss in subscription businesses.
 
----
-
-## 📂 Estrutura do Repositório
-
-```text
-├── notebooks/           # Análise Exploratória (EDA) e prototipagem do modelo
-├── data/
-│   ├── raw/             # Dados brutos (imutáveis)
-│   └── processed/       # Dados limpos e preparados para o modelo
-├── src/
-│   ├── data_cleaning.py # Funções de saneamento de dados
-│   ├── finance.py       # Cálculos de ROI e métricas de negócio (LTV)
-│   └── eda.py           # Funções de estilização e gráficos
-├── models/
-│   ├── xgboost.py       # Classe ChurnXGBoost (Pipeline Scikit-Learn + XGBoost)
-│   └── churn_model.joblib # O modelo treinado finalizado
-├── main.py              # Script principal de treinamento e avaliação
-├── app.py               # Interface do Dashboard (Streamlit)
-└── requirements.txt     # Dependências do projeto
-
-```
+The goal of this project is to:
+- Identify customers at high risk of cancellation
+- Quantify the financial impact of churn
+- Support marketing and retention teams with **actionable insights**, not just predictions
 
 ---
 
-## ⚙️ Arquitetura da Solução
+## 💡 Solution Overview
 
-O projeto foi construído sobre três pilares fundamentais:
+The solution uses a **machine learning model (XGBoost)** to assign a **churn risk score** to each customer, combined with a **business dashboard** that helps prioritize retention actions.
 
-### 1. O Pipeline de Treinamento (`main.py` + `models/`)
-
-Utilizamos um **Scikit-Learn Pipeline** para evitar *Data Leakage* (vazamento de dados). O pipeline automatiza:
-
-* **Imputação e Escalonamento:** Tratamento de dados numéricos.
-* **One-Hot Encoding:** Transformação de variáveis categóricas (Região, Gênero, Pagamento).
-* **Balanceamento de Classe:** Uso do parâmetro `scale_pos_weight` para lidar com a minoria de clientes que cancelam.
-
-### 2. A Inteligência do Modelo (`XGBoost`)
-
-O XGBoost foi escolhido por sua alta performance em dados tabulares e capacidade de lidar com relações não lineares complexas. O modelo não apenas prevê "quem vai sair", mas fornece a **probabilidade** (0 a 100%), permitindo segmentar clientes em risco Baixo, Médio e Alto.
+Key characteristics:
+- Probabilistic churn prediction (not only yes/no)
+- Customer prioritization based on **risk × lifetime value (LTV)**
+- Clear connection between model outputs and business decisions
 
 ---
 
-## 📊 A Interface Streamlit
+## 🧠 Data Science Approach
 
-O Dashboard (`app.py`) transforma as predições técnicas em uma **ferramenta de gestão**:
-
-* **Simulador de Negócios:** Permite ajustar o custo de retenção e ver o ROI potencial em tempo real.
-* **Matriz de Priorização:** Cruza a probabilidade de Churn com o LTV (Lifetime Value), apontando quais clientes devem ser contatados primeiro.
-* **Exportação de Leads:** O time comercial pode baixar um CSV filtrado apenas com os clientes de alto risco para ações imediatas.
-
----
-
-## 📈 Principais Insights
-
-Durante a análise (EDA), identificamos os principais gatilhos de cancelamento:
-
-* **Suporte:** Clientes com mais de 3 chamados abertos têm 60% mais chance de Churn.
-* **Engajamento:** Scores de engajamento abaixo de 40 pontos são fortes indicadores de saída iminente.
-* **Financeiro:** O aumento no valor mensal sem oferta de upgrade é o principal motivo de churn na região Sul.
+- Exploratory Data Analysis (EDA) to identify churn drivers
+- Feature engineering and preprocessing using a reproducible pipeline
+- Supervised learning with XGBoost for tabular data
+- Proper handling of class imbalance
+- Model outputs designed for business consumption
 
 ---
 
-## 🚀 Como Executar
+## 📊 Decision Support Dashboard (Streamlit)
 
-1. **Instalar dependências:**
+The interactive dashboard transforms model predictions into **management-ready insights**:
+
+- **Churn Risk Segmentation:** Low, Medium, and High risk customers
+- **Retention ROI Simulator:** Estimate the financial return of retention strategies
+- **Customer Prioritization Matrix:** Focus efforts where they matter most
+- **Exportable Lead List:** High-risk customers ready for action by marketing or sales teams
+
+---
+
+## 📈 Key Business Insights
+
+Insights uncovered during analysis include:
+
+- Customers with frequent support requests are significantly more likely to churn
+- Low engagement is a strong early warning signal
+- Price increases without perceived value upgrades drive churn in specific regions
+
+These insights can directly inform **retention campaigns, pricing strategy, and customer experience improvements**.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Python**
+- **Pandas, NumPy**
+- **Scikit-Learn**
+- **XGBoost**
+- **Streamlit**
+- **Joblib**
+
+---
+
+## 🚀 How to Run
+
 ```bash
 pip install -r requirements.txt
-
-```
-
-
-2. **Treinar o modelo (Gera o arquivo .joblib):**
-```bash
 python main.py
-
-```
-
-
-3. **Rodar o dashboard:**
-```bash
 streamlit run app.py
 
-```
+👤 About the Author
 
-
-
----
-
-## 📧 Contato
-
-Desenvolvido por **Ricson Ramos**
+Ricson Ramos
+Data Scientist | Machine Learning | Business Analytics  
