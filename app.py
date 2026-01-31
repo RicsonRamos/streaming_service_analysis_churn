@@ -4,24 +4,30 @@ import joblib
 import plotly.express as px
 import os
 
+from src.config.loader import ConfigLoader
+
+cfg = ConfigLoader().load_all()
+
+RAW_PATH = cfg["paths"]["data"]["raw"]
+PROCESSED_PATH = cfg["paths"]["data"]["processed"]
+MODEL_PATH = cfg["paths"]["models"]["churn_model"]
+
+
 # 1. CONFIGURAÇÃO DA PÁGINA
 st.set_page_config(page_title="Radar de Churn - Streaming", layout="wide", page_icon="🛡️")
 
 # 2. CARREGAMENTO DE ASSETS
 @st.cache_resource
 def load_assets():
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    
-    # PADRONIZE AQUI: Use exatamente o nome que aparece no seu VS Code (imagem 3)
-    model_path = os.path.join(BASE_DIR, 'models', 'churn_model_v1.joblib')
-    data_path = os.path.join(BASE_DIR, 'data', 'processed', 'streaming_clean.csv') # <--- Mudei para minúsculo!
-    
-    if not os.path.exists(model_path) or not os.path.exists(data_path):
-        return None, None, model_path, data_path
-        
-    model = joblib.load(model_path)
-    df = pd.read_csv(data_path)
-    return model, df, model_path, data_path
+
+    if not os.path.exists(MODEL_PATH) or not os.path.exists(PROCESSED_PATH):
+        return None, None, MODEL_PATH, PROCESSED_PATH
+
+    model = joblib.load(MODEL_PATH)
+    df = pd.read_csv(PROCESSED_PATH)
+
+    return model, df, MODEL_PATH, PROCESSED_PATH
+
 
 # Carrega os dados
 model, df, m_path, d_path = load_assets()   

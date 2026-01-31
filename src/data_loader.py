@@ -1,7 +1,14 @@
 import pandas as pd
 import os
-import numpy as np
-from src.config import RAW_DATA_PATH
+
+from src.config.loader import ConfigLoader
+
+cfg = ConfigLoader().load_all()
+
+RAW_PATH = cfg["paths"]["data"]["raw"]
+PROCESSED_PATH = cfg["paths"]["data"]["processed"]
+MODEL_PATH = cfg["paths"]["models"]["churn_model"]
+
 
 def load_streaming_data(file_path: str = RAW_DATA_PATH) -> pd.DataFrame:
     """Carrega e aplica limpezas básicas (Sanity Check)."""
