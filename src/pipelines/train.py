@@ -63,5 +63,7 @@ def train_pipeline(cfg):
     joblib.dump({"preprocessor": preprocessor, "model": model}, model_path)
     print(f"[Success] Modelo e pipeline salvos em: {model_path}")
 
+    print(list(X_train.columns))    
+
 if __name__ == "__main__":
     train_pipeline()
