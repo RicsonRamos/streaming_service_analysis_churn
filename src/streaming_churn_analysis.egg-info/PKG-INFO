@@ -1,0 +1,4 @@
+Metadata-Version: 2.4
+Name: streaming_churn_analysis
+Version: 0.1.0
+Summary: Pipeline de análise de churn para serviços de streaming
