@@ -148,6 +148,17 @@ def train_pipeline():
         chart_path.parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(chart_path)
         logger.info(f"Importância das features salva em: {chart_path}")
+
+        model_name = "XGBoost_Optimized_Churn_Model"
+        results = mlflow.sklearn.log_model(
+            sk_model=model,
+
+            artifact_path='model',
+            registered_model_name=model_name
+        )
+
+        logger.info(f"Modelo registrado no MLflow com o nome: {model_name}")
+
         
     # Validação visual final no terminal
     logger.info(f"Colunas finais enviadas ao modelo: {list(X_train_final.columns)}")
