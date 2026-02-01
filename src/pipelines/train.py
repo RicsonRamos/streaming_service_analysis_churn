@@ -1,6 +1,9 @@
 import pandas as pd
 import joblib
 import logging
+import mlflow
+import mlflow.sklearn
+
 from pathlib import Path
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score, accuracy_score, classification_report
@@ -9,6 +12,7 @@ from xgboost import XGBClassifier
 from src.features.feature_engineering import FeatureEngineer
 from src.features.validation import validate_dataframe
 from src.models.training.tuner import ChurnTuner
+
 
 # Configuração de logging profissional
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -99,7 +103,56 @@ def train_pipeline():
     logger.info(f"RESULTADOS REAIS: AUC={auc:.4f} | ACC={acc:.4f}")
     print("\nRelatório de Classificação:\n", classification_report(y_test, preds))
 
-    # 8. Salvamento de Artefatos
+    
+    
+    # Validação visual final no terminal
+    logger.info(f"Colunas finais enviadas ao modelo: {list(X_train_final.columns)}")
+    
+
+    mlflow.sklearn.log_model(model, "Churn_Prediction_Streaming")
+
+    y_pred = model.predict(X_test_final)
+    
+    report = classification_report(y_test, y_pred, output_dict=True)
+
+
+    precision_1 = report['1']['precision']
+    recall_1 = report['1']['recall']
+    f1_1 = report['1']['f1-score']
+
+    with mlflow.start_run(run_name='XGBoost_Optimized'):
+        # Logar parâmetros e métricas
+        mlflow.log_params(model_params)
+   
+        # Logar métricas
+        mlflow.log_metric('precision', precision_1)
+        mlflow.log_metric('recall_churn', recall_1)
+        mlflow.log_metric('f1_churn', f1_1)
+
+        # Salvar o modelo dentro do MLflow
+        mlflow.sklearn.log_model(model, "Churn_Prediction_Streaming")
+
+        logger.info("Modelo e métricas logados no MLflow com sucesso.")
+
+        import matplotlib.pyplot as plt
+        from xgboost import plot_importance
+
+
+        # Plotar e salvar a importância das features
+        fig, ax = plt.subplots(figsize=(10, 8))
+        plot_importance(model, ax=ax, max_num_features=10)
+        plt.tight_layout()
+
+        # Salvar a figura
+        chart_path = Path(cfg["paths"]["reports"]["feature_importance_plot"])
+        chart_path.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(chart_path)
+        logger.info(f"Importância das features salva em: {chart_path}")
+        
+    # Validação visual final no terminal
+    logger.info(f"Colunas finais enviadas ao modelo: {list(X_train_final.columns)}")
+
+    # Salvamento de Artefatos
     output_path = Path(cfg["paths"]["models"]["churn_model"])
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -112,9 +165,6 @@ def train_pipeline():
     
     joblib.dump(model_data, output_path)
     logger.info(f"Modelo salvo em: {output_path}")
-    
-    # Validação visual final no terminal
-    logger.info(f"Colunas finais enviadas ao modelo: {list(X_train_final.columns)}")
 
 if __name__ == "__main__":
     train_pipeline()

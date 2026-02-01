@@ -9,3 +9,4 @@ models:
 
 reports:
   output: reports/
+  feature_importance_plot: "reports/feature_importance.png"

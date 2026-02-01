@@ -43,6 +43,8 @@ def render_feature_importance(fi_df):
     )
     st.plotly_chart(fig_fi, width='stretch', key="bar_importance_unique")
 
+  
+
 def render_simulator(model, service):
     """
     Cria um formulário na barra lateral para simular novos cenários.

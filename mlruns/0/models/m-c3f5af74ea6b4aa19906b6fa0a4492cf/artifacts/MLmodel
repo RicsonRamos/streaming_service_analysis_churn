@@ -1,0 +1,23 @@
+artifact_path: file:D:/Documentos/VsCode/projetos_git/streaming_service_analysis_churn/mlruns/0/models/m-c3f5af74ea6b4aa19906b6fa0a4492cf/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.13.7
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.8.0
+    skops_trusted_types: null
+mlflow_version: 3.9.0
+model_id: m-c3f5af74ea6b4aa19906b6fa0a4492cf
+model_size_bytes: 550379
+model_uuid: m-c3f5af74ea6b4aa19906b6fa0a4492cf
+prompts: null
+run_id: e0f7060b582348948e0c6a9f6ce736c6
+utc_time_created: '2026-02-01 14:17:52.287391'
