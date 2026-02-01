@@ -1,6 +1,9 @@
 import pandas as pd
 import joblib
 import logging
+import mlflow
+import mlflow.sklearn
+
 from pathlib import Path
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score, accuracy_score, classification_report
@@ -8,6 +11,8 @@ from src.config.loader import ConfigLoader
 from xgboost import XGBClassifier
 from src.features.feature_engineering import FeatureEngineer
 from src.features.validation import validate_dataframe
+from src.models.training.tuner import ChurnTuner
+
 
 # Configuração de logging profissional
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -63,10 +68,29 @@ def train_pipeline():
     # Garantir alinhamento de colunas
     X_test_final = X_test_final.reindex(columns=X_train_final.columns, fill_value=0)
 
-    # 6. Treinar XGBoost (Parâmetros do model.yaml)
     model_params = cfg["model"]["model_params"]
-    model = XGBClassifier(**model_params, eval_metric='logloss')
+
+    # Optimização de hiperparâmetros (opcional)
+    if cfg['model'].get('tune_hyperprameters', True):
+        tuner = ChurnTuner(X_train_final, y_train)
+        best_params = tuner.optimize(n_trials=30)
+        logger.info(f'New best hyperparameters: {best_params}')
+        # Atualizar parâmetros do modelo com os melhores encontrados
+        model_params.update(best_params)
+
+        # save best params
+        best_params_path = Path(cfg["paths"]["models"]["artifacts"]) / "best_model_params.yaml"
+        best_params_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(best_params_path, 'w') as f:
+            import yaml
+            yaml.dump(best_params, f)
+        logger.info(f"Melhores parâmetros salvos em: {best_params_path}")
+
+
+    # 6. Treinar XGBoost (Parâmetros do model.yaml)
     
+    model = XGBClassifier(**model_params)
+       
     logger.info("Iniciando treinamento do XGBoost...")
     model.fit(X_train_final, y_train)
 
@@ -79,7 +103,67 @@ def train_pipeline():
     logger.info(f"RESULTADOS REAIS: AUC={auc:.4f} | ACC={acc:.4f}")
     print("\nRelatório de Classificação:\n", classification_report(y_test, preds))
 
-    # 8. Salvamento de Artefatos
+    
+    
+    # Validação visual final no terminal
+    logger.info(f"Colunas finais enviadas ao modelo: {list(X_train_final.columns)}")
+    
+
+    mlflow.sklearn.log_model(model, "Churn_Prediction_Streaming")
+
+    y_pred = model.predict(X_test_final)
+    
+    report = classification_report(y_test, y_pred, output_dict=True)
+
+
+    precision_1 = report['1']['precision']
+    recall_1 = report['1']['recall']
+    f1_1 = report['1']['f1-score']
+
+    with mlflow.start_run(run_name='XGBoost_Optimized'):
+        # Logar parâmetros e métricas
+        mlflow.log_params(model_params)
+   
+        # Logar métricas
+        mlflow.log_metric('precision', precision_1)
+        mlflow.log_metric('recall_churn', recall_1)
+        mlflow.log_metric('f1_churn', f1_1)
+
+        # Salvar o modelo dentro do MLflow
+        mlflow.sklearn.log_model(model, "Churn_Prediction_Streaming")
+
+        logger.info("Modelo e métricas logados no MLflow com sucesso.")
+
+        import matplotlib.pyplot as plt
+        from xgboost import plot_importance
+
+
+        # Plotar e salvar a importância das features
+        fig, ax = plt.subplots(figsize=(10, 8))
+        plot_importance(model, ax=ax, max_num_features=10)
+        plt.tight_layout()
+
+        # Salvar a figura
+        chart_path = Path(cfg["paths"]["reports"]["feature_importance_plot"])
+        chart_path.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(chart_path)
+        logger.info(f"Importância das features salva em: {chart_path}")
+
+        model_name = "XGBoost_Optimized_Churn_Model"
+        results = mlflow.sklearn.log_model(
+            sk_model=model,
+
+            artifact_path='model',
+            registered_model_name=model_name
+        )
+
+        logger.info(f"Modelo registrado no MLflow com o nome: {model_name}")
+
+        
+    # Validação visual final no terminal
+    logger.info(f"Colunas finais enviadas ao modelo: {list(X_train_final.columns)}")
+
+    # Salvamento de Artefatos
     output_path = Path(cfg["paths"]["models"]["churn_model"])
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -92,9 +176,6 @@ def train_pipeline():
     
     joblib.dump(model_data, output_path)
     logger.info(f"Modelo salvo em: {output_path}")
-    
-    # Validação visual final no terminal
-    logger.info(f"Colunas finais enviadas ao modelo: {list(X_train_final.columns)}")
 
 if __name__ == "__main__":
     train_pipeline()

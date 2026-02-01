@@ -1,22 +1,29 @@
-FROM python:3.11-slim
+# Usar uma imagem leve do Python
+FROM python:3.10-slim
 
+# Definir diretório de trabalho
 WORKDIR /app
 
-# Instalar dependências do sistema
+# Instalar dependências do sistema necessárias para o XGBoost
 RUN apt-get update && apt-get install -y \
-    libgomp1 \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copiar requisitos primeiro para cache
+# Copiar apenas o arquivo de requisitos primeiro (otimiza o cache do Docker)
 COPY requirements.txt .
+
+# Instalar bibliotecas Python
 RUN pip install --no-cache-dir -r requirements.txt
 
-# COPIA EXPLICITA DAS PASTAS (Para garantir que entrem na imagem)
-COPY models/ ./models/
-COPY data/ ./data/
-COPY app.py .
-# Se houver outros arquivos necessários, copie-os aqui
+# Copiar todo o projeto para dentro do container
+COPY . .
 
-EXPOSE 8501
+# Criar pastas que o script pode precisar (caso não existam)
+RUN mkdir -p models/artifacts data/processed outputs
 
-ENTRYPOINT ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# Definir a variável de ambiente para o Python encontrar o diretório 'src'
+ENV PYTHONPATH="${PYTHONPATH}:/app"
+
+# Comando padrão ao rodar o container
+ENTRYPOINT ["python", "run.py"]
+CMD ["train"]
