@@ -8,6 +8,7 @@ from src.config.loader import ConfigLoader
 from xgboost import XGBClassifier
 from src.features.feature_engineering import FeatureEngineer
 from src.features.validation import validate_dataframe
+from src.models.training.tuner import ChurnTuner
 
 # Configuração de logging profissional
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -63,10 +64,29 @@ def train_pipeline():
     # Garantir alinhamento de colunas
     X_test_final = X_test_final.reindex(columns=X_train_final.columns, fill_value=0)
 
-    # 6. Treinar XGBoost (Parâmetros do model.yaml)
     model_params = cfg["model"]["model_params"]
-    model = XGBClassifier(**model_params, eval_metric='logloss')
+
+    # Optimização de hiperparâmetros (opcional)
+    if cfg['model'].get('tune_hyperprameters', True):
+        tuner = ChurnTuner(X_train_final, y_train)
+        best_params = tuner.optimize(n_trials=30)
+        logger.info(f'New best hyperparameters: {best_params}')
+        # Atualizar parâmetros do modelo com os melhores encontrados
+        model_params.update(best_params)
+
+        # save best params
+        best_params_path = Path(cfg["paths"]["models"]["artifacts"]) / "best_model_params.yaml"
+        best_params_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(best_params_path, 'w') as f:
+            import yaml
+            yaml.dump(best_params, f)
+        logger.info(f"Melhores parâmetros salvos em: {best_params_path}")
+
+
+    # 6. Treinar XGBoost (Parâmetros do model.yaml)
     
+    model = XGBClassifier(**model_params)
+       
     logger.info("Iniciando treinamento do XGBoost...")
     model.fit(X_train_final, y_train)
 
