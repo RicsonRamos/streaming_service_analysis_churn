@@ -1,69 +1,100 @@
-# src/pipelines/train.py
 import pandas as pd
 import joblib
+import logging
 from pathlib import Path
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import roc_auc_score, accuracy_score
-from src.preprocessing import DataCleaner, get_preprocessor
+from sklearn.metrics import roc_auc_score, accuracy_score, classification_report
 from src.config.loader import ConfigLoader
 from xgboost import XGBClassifier
+from src.features.feature_engineering import FeatureEngineer
+from src.features.validation import validate_dataframe
 
+# Configuração de logging profissional
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
-def train_pipeline(cfg):
-    # 1. Carregar CSV limpo
-    data_path = cfg["paths"]["data"]["processed"]
+def train_pipeline():
+    # 0. Iniciar Configuração
+    loader = ConfigLoader()
+    cfg = loader.load_all()
+
+    # Inicializar engenheiro de features 
+    fe = FeatureEngineer(cfg)
+
+    # 1. Carregar Dados
+    data_path = Path(cfg["paths"]["data"]["processed"])
+    if not data_path.exists():
+        logger.error(f"Arquivo não encontrado: {data_path}")
+        return
+    
     df = pd.read_csv(data_path)
+    logger.info(f"Dados carregados com sucesso de: {data_path}")
 
-    target_col = "Churned"
+    if not validate_dataframe(df):
+        logger.error("Pipeline abortado: Dados inválidos.")
+        return
 
-    # 2. Limpeza final
-    cleaner = DataCleaner()
-    df_clean, num_cols, cat_cols = cleaner.clean_and_prepare_data(df, target_col=target_col)
+    # 2. FEATURE ENGINEERING & REGISTRY (A regra de ouro)
+    # Aqui o FeatureEngineer filtra as colunas e cria as novas métricas
+    df_enriched = fe.create_features(df)
+    features_list = fe.get_feature_names()
+    target = cfg["model"]["features"]["target"]
 
-    # 3. Separar features e target
-    X = df_clean[num_cols + cat_cols]
-    y = df_clean[target_col]
+    logger.info(f"Treinando com {len(features_list)} colunas (Oficiais + Engineered).")
+    
+    # 3. Preparar X e y (Usando apenas o que o Engenheiro autorizou)
+    X = df_enriched[features_list].copy()
+    y = df_enriched[target]
 
-    # 4. Separar treino/teste
-    random_state = cfg["base"]["runtime"]["random_state"]
-    test_size = cfg["base"]["runtime"]["test_size"]
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state, stratify=y)
-
-    # 5. Criar preprocessor
-    preprocessor = get_preprocessor(num_cols, cat_cols)
-
-    # 6. Transformar os dados
-    X_train_transformed = preprocessor.fit_transform(X_train)
-    X_test_transformed = preprocessor.transform(X_test)
-
-    # 7. Treinar modelo XGBoost
-    model = XGBClassifier(
-        n_estimators=200,
-        max_depth=6,
-        learning_rate=0.1,
-        random_state=random_state,
-        use_label_encoder=False,
-        eval_metric='logloss'
+    # 4. Train/Test Split
+    runtime_cfg = cfg["base"]["runtime"]
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, 
+        test_size=runtime_cfg["test_size"], 
+        random_state=runtime_cfg["random_state"],
+        stratify=y
     )
-    model.fit(X_train_transformed, y_train)
 
-    # 8. Avaliar
-    y_pred_proba = model.predict_proba(X_test_transformed)[:, 1]
-    auc = roc_auc_score(y_test, y_pred_proba)
-    y_pred = model.predict(X_test_transformed)
-    acc = accuracy_score(y_test, y_pred)
+    # 5. Preprocessamento (One-Hot Encoding para colunas categóricas oficiais)
+    cat_features = cfg["model"]["features"]["categorical"]
+    X_train_final = pd.get_dummies(X_train, columns=cat_features)
+    X_test_final = pd.get_dummies(X_test, columns=cat_features)
 
-    print(f"[Metrics] AUC: {auc:.4f} | Accuracy: {acc:.4f}")
+    # Garantir alinhamento de colunas
+    X_test_final = X_test_final.reindex(columns=X_train_final.columns, fill_value=0)
 
-    # 9. Salvar modelo + pipeline
-    model_path = Path(cfg["paths"]["models"]["churn_model"])
-    model_path.parent.mkdir(parents=True, exist_ok=True)
+    # 6. Treinar XGBoost (Parâmetros do model.yaml)
+    model_params = cfg["model"]["model_params"]
+    model = XGBClassifier(**model_params, eval_metric='logloss')
+    
+    logger.info("Iniciando treinamento do XGBoost...")
+    model.fit(X_train_final, y_train)
 
-    # Salvando o pipeline completo para deploy
-    joblib.dump({"preprocessor": preprocessor, "model": model}, model_path)
-    print(f"[Success] Modelo e pipeline salvos em: {model_path}")
+    # 7. Avaliação
+    probs = model.predict_proba(X_test_final)[:, 1]
+    auc = roc_auc_score(y_test, probs)
+    preds = model.predict(X_test_final)
+    acc = accuracy_score(y_test, preds)
 
-    print(list(X_train.columns))    
+    logger.info(f"RESULTADOS REAIS: AUC={auc:.4f} | ACC={acc:.4f}")
+    print("\nRelatório de Classificação:\n", classification_report(y_test, preds))
+
+    # 8. Salvamento de Artefatos
+    output_path = Path(cfg["paths"]["models"]["churn_model"])
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    model_data = {
+        "model": model,
+        "features": list(X_train_final.columns),
+        "params": model_params,
+        "metrics": {"auc": auc, "accuracy": acc}
+    }
+    
+    joblib.dump(model_data, output_path)
+    logger.info(f"Modelo salvo em: {output_path}")
+    
+    # Validação visual final no terminal
+    logger.info(f"Colunas finais enviadas ao modelo: {list(X_train_final.columns)}")
 
 if __name__ == "__main__":
     train_pipeline()

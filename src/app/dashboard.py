@@ -26,12 +26,17 @@ with st.sidebar:
 
 # 4. Core Logic
 df_processed = service.predict_churn(model, df_raw, threshold)
+fit_df = service.get_feature_importance(model)
 
 # 5. UI Rendering
 st.title("🛡️ Radar de Churn - Streaming")
 ui.render_metrics(df_processed, threshold)
 st.markdown("---")
 ui.render_charts(df_processed)
+st.markdown("---")
+ui.render_feature_importance(fit_df)
+st.markdown("---")
+ui.render_simulator(model, service)
 
 st.subheader("📋 Lista de Ação")
 st.dataframe(df_processed[df_processed['Nivel_Risco'] == 'Alto'].sort_values('Probabilidade', ascending=False))

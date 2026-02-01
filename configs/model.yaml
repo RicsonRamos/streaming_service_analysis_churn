@@ -9,7 +9,6 @@ features:
     - Age
     - Subscription_Length
     - Support_Tickets_Raised
-    - Satisfaction_Score
     - Monthly_Spend
     - Estimated_LTV
     - Engagement_Score
@@ -18,5 +17,12 @@ features:
     - Gender
     - Region
     - Payment_Method
-
-target: Churned
+    
+  target: "Churned"
+    
+model_params:
+  n_estimators: 100
+  max_depth: 6
+  learning_rate: 0.1
+  features_to_remove: 
+    - "Satisfaction_Score"

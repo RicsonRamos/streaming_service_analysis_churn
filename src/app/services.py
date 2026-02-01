@@ -44,3 +44,41 @@ class ChurnService:
             lambda x: 'Alto' if x >= threshold else ('Médio' if x >= 0.4 else 'Baixo')
         )
         return df
+    
+    def get_feature_importance(self, model):
+        """
+        Extrai a importância das colunas do modelo XGBoost.
+        """
+        import pandas as pd
+        
+        # Pega as importâncias e associa aos nomes das 17 colunas
+        importances = model.feature_importances_
+        feature_names = self.expected_features
+        
+        fi_df = pd.DataFrame({
+            'Feature': feature_names,
+            'Importance': importances
+        }).sort_values(by='Importance', ascending=False)
+        
+        return fi_df
+    def predict_single_customer(self, model, customer_data):
+        """
+        Recebe um dicionário com os dados de 1 cliente e retorna a probabilidade.
+        """
+        import pandas as pd
+        
+        # Converte para DataFrame
+        X_single = pd.DataFrame([customer_data])
+        
+        # Aplica o mesmo One-Hot Encoding do treino
+        X_single = pd.get_dummies(X_single)
+        
+        # Alinhamento forçado com as 17 colunas
+        for col in self.expected_features:
+            if col not in X_single.columns:
+                X_single[col] = 0
+        
+        X_single = X_single[self.expected_features]
+        
+        # Retorna a probabilidade (0 a 1)
+        return model.predict_proba(X_single)[0, 1]
