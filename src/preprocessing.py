@@ -1,7 +1,10 @@
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from src.config import PROCESSED_DATA_PATH
+from src.config.loader import ConfigLoader
+
+cfg = ConfigLoader().load_all()
+
 
 # Imports necessários para o Pipeline do Scikit-Learn (O que faltava!)
 from sklearn.compose import ColumnTransformer
@@ -12,8 +15,12 @@ from sklearn.impute import SimpleImputer
 class DataCleaner:
     def __init__(self, missing_threshold=0.5, auto_save=False, output_path=None):
         self.missing_threshold = missing_threshold
-        self.auto_save = auto_save
-        self.output_path = output_path or PROCESSED_DATA_PATH
+        self.auto_save = auto_save        
+
+    def save(self, df):
+        path = Path(cfg["paths"]["data"]["processed"])
+        path.parent.mkdir(parents=True, exist_ok=True)
+        df.to_csv(path, index=False)
 
     def clean_and_prepare_data(self, df: pd.DataFrame, target_col: str = "Churned") -> tuple:
         """
@@ -44,10 +51,8 @@ class DataCleaner:
         for col in cat_cols:
             df_clean[col] = df_clean[col].fillna("Unspecified")
 
-        # 5. Persistência
-        output_file = Path(self.output_path)
-        output_file.parent.mkdir(parents=True, exist_ok=True)
-        df_clean.to_csv(output_file, index=False)
+        if self.auto_save:
+            self.save(df_clean)
 
         print(f"[Quality Assurance] Limpeza concluída: {initial_count} -> {len(df_clean)} registros.")
         return df_clean, num_cols, cat_cols

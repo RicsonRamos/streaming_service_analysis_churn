@@ -1,0 +1,28 @@
+model:
+  type: xgboost
+  test_size: 0.2
+  eval_metric: auc
+  early_stopping_rounds: 20
+
+features:
+  numeric:
+    - Age
+    - Subscription_Length
+    - Support_Tickets_Raised
+    - Monthly_Spend
+    - Estimated_LTV
+    - Engagement_Score
+
+  categorical:
+    - Gender
+    - Region
+    - Payment_Method
+    
+  target: "Churned"
+    
+model_params:
+  n_estimators: 100
+  max_depth: 6
+  learning_rate: 0.1
+  features_to_remove: 
+    - "Satisfaction_Score"

@@ -7,6 +7,17 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, roc_auc_score, confusion_matrix
 from IPython.display import display, HTML
 
+from src.config.loader import ConfigLoader
+
+cfg = ConfigLoader().load_all()
+
+RANDOM_STATE = cfg["base"]["runtime"]["random_state"]
+TEST_SIZE = cfg["base"]["runtime"]["test_size"]
+
+RAW_PATH = cfg["paths"]["data"]["raw"]
+PROCESSED_PATH = cfg["paths"]["data"]["processed"]
+MODEL_PATH = cfg["paths"]["models"]["churn_model"]
+
 class ChurnPipeline:
     """
     Pipeline de Machine Learning focado em interpretabilidade e KPIs de negócio.
@@ -42,7 +53,7 @@ class ChurnPipeline:
 
         # 5. Split Estratificado (Mantém a proporção de churn em treino e teste)
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42, stratify=y
+            X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE, stratify=y
         )
 
         return preprocessor, X_train, X_test, y_train, y_test

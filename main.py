@@ -3,7 +3,17 @@ import joblib
 from pathlib import Path
 from sklearn.model_selection import train_test_split
 from src.preprocessing import DataCleaner
-from models.xgboost import ChurnXGBoost 
+from src.models.xgboost import ChurnXGBoost 
+from src.config.loader import ConfigLoader
+
+cfg = ConfigLoader().load_all()
+
+RANDOM_STATE = cfg["base"]["runtime"]["random_state"]
+TEST_SIZE = cfg["base"]["runtime"]["test_size"]
+
+RAW_PATH = cfg["paths"]["data"]["raw"]
+PROCESSED_PATH = cfg["paths"]["data"]["processed"]
+MODEL_PATH = cfg["paths"]["models"]["churn_model"]
 
 def main():
     print("🚀 Iniciando Pipeline de Churn Corrigido...")
@@ -35,7 +45,12 @@ def main():
     X = df_clean[features]
     y = df_clean[target]
     
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X,
+        y,
+        test_size=TEST_SIZE,
+        random_state=RANDOM_STATE
+    )
 
     # 5. TREINAMENTO COM O PIPELINE
     # O seu modelo ChurnXGBoost deve conter o Pipeline com OneHotEncoder dentro
@@ -50,14 +65,14 @@ def main():
 
     # 7. EXPORTAÇÃO DO PACOTE COMPLETO
     # Salvamos o objeto xgb_model que contém o Pipeline + Modelo
-    model_path = Path("models/churn_model_v1.joblib")
+    model_path = Path(cfg["paths"]["models"]["churn_model"])
     model_path.parent.mkdir(parents=True, exist_ok=True)
     
     # Salvamos o wrapper completo
     joblib.dump(xgb_model, model_path)
     
     # Opcional: Salvar uma versão do CSV limpo para o Dashboard usar de base
-    df_clean.to_csv('data/processed/Streaming_Clean.csv', index=False)
+    df_clean.to_csv(PROCESSED_PATH, index=False)
     
     print(f"\n💾 Sucesso! Modelo exportado para: {model_path}")
 

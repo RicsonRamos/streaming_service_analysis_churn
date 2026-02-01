@@ -1,7 +1,14 @@
 import pandas as pd
-import numpy as np
+
 from pathlib import Path
-from src.config import PROCESSED_DATA_PATH # Importando o caminho do seu config
+from src.config.loader import ConfigLoader
+
+cfg = ConfigLoader().load_all()
+
+RAW_PATH = cfg["paths"]["data"]["raw"]
+PROCESSED_PATH = cfg["paths"]["data"]["processed"]
+MODEL_PATH = cfg["paths"]["models"]["churn_model"]
+
 
 class FeatureEngineer:
     def __init__(self):
