@@ -1,4 +1,12 @@
-name: CI Pipeline (Quality, Tests & Docker)
+# ==============================================================================
+# CI Pipeline: Quality Assurance, Automated Testing, and Docker Validation
+# ==============================================================================
+# This workflow orchestrates the Continuous Integration (CI) process for the 
+# Churn Radar project. It ensures code quality via Linting, execution of unit 
+# tests via Pytest, and verifies that the Docker image builds successfully.
+# ==============================================================================
+
+name: CI Pipeline
 
 on:
   push:
@@ -7,55 +15,74 @@ on:
     branches: [ "main" ]
 
 jobs:
-  # 1. Auditoria e Qualidade
+  # ----------------------------------------------------------------------------
+  # JOB 1: Audit and Quality (Linting & Unit Tests)
+  # ----------------------------------------------------------------------------
   test-and-audit:
+    name: Code Quality & Unit Testing
     runs-on: ubuntu-latest
+    
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        description: "Fetches the latest code from the current branch."
 
     - name: Set up Python 3.10
       uses: actions/setup-python@v5
       with:
         python-version: "3.10"
+        cache: 'pip' # Speeds up future runs by caching pip dependencies
 
-    - name: Install dependencies
+    - name: Install Project Dependencies
       run: |
         python -m pip install --upgrade pip
-        # Instala o projeto em modo editável com as dependências extras de dev
-        # Isso garante que o pytest encontre o pacote 'src'
+        # Installs the package in editable mode with development extras
+        # This triggers the installation of 'dev' dependencies from pyproject.toml
         pip install -e ".[dev]"
+      description: "Installs core ML libraries plus QA tools (pytest, flake8)."
 
     - name: Lint with flake8
       run: |
-        # Erros críticos
+        # E9, F63, F7, F82: Critical syntax and logic checks
         flake8 src --count --select=E9,F63,F7,F82 --show-source --statistics
-        # Complexidade ciclomática
+        # PEP8 style guidelines and complexity analysis
         flake8 src --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      description: "Analyzes code for style violations and high complexity."
 
     - name: Run Pytest with Coverage
       env:
+        # Critical: Ensures the 'src' directory is in the Python path
         PYTHONPATH: .
       run: |
-        # O PYTHONPATH aqui é o "seguro" para evitar ModuleNotFoundError
         pytest --cov=src --cov-report=term-missing
+      description: "Executes unit tests and generates a code coverage report."
 
-  # 2. Build de Imagem (Só roda se os testes passarem)
+  # ----------------------------------------------------------------------------
+  # JOB 2: Docker Build Validation (Conditional on Job 1 success)
+  # ----------------------------------------------------------------------------
   build-docker:
+    name: Docker Image Verification
     needs: test-and-audit
     runs-on: ubuntu-latest
+    
     steps:
-    - name: Checkout do código
+    - name: Checkout Repository
       uses: actions/checkout@v4
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
+      with:
+        description: "Enables advanced Docker build features like multi-stage caching."
 
-    - name: Build da Imagem (Teste)
+    - name: Validate Docker Build
       uses: docker/build-push-action@v5
       with:
         context: .
-        file: docker/Dockerfile  # Certifique-se que o caminho do Dockerfile está correto
-        push: false
+        # Points to the refactored directory structure
+        file: docker/Dockerfile
+        push: false # We only want to verify the build, not push to a registry yet
         tags: streaming-churn-app:latest
         cache-from: type=gha
         cache-to: type=gha,mode=max
+      description: "Verifies the Dockerfile can build the production image successfully."
