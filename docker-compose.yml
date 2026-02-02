@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  churn-app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: churn_radar_prod
+    ports:
+      - "8501:8501"
+    volumes:
+      # Mount artifacts and data to persist training results and processed files
+      - ./models/artifacts:/app/models/artifacts
+      - ./data/processed:/app/data/processed
+      - ./reports:/app/reports
+    environment:
+      - ENV=production
+      - MLFLOW_TRACKING_URI=http://mlflow-server:5000 # Caso queira integrar MLflow
+    restart: unless-stopped
+
+  # Opcional: Container para o MLflow Tracking UI
+  mlflow-server:
+    image: ghcr.io/mlflow/mlflow:latest
+    container_name: churn_mlflow
+    ports:
+      - "5000:5000"
+    command: mlflow ui --host 0.0.0.0
