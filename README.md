@@ -48,9 +48,12 @@ cd churn-radar
 
 # Build and start containers
 docker-compose up --build
+'''
+
 
 Note: The dashboard will be available at http://localhost:8501.
 ___ 
+
 
 The dashboard will be available at http://localhost:8501.
 3. Training the Model
