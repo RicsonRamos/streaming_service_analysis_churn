@@ -2,75 +2,80 @@ import pandas as pd
 import numpy as np
 import logging
 
-# Setup basic logging to replace print statements
 logger = logging.getLogger(__name__)
 
 class FeatureEngineer:
     """
-    Robust Feature Engineering class with schema validation and error handling.
+    High-robustness Feature Engineering calibrated for model.yaml schema.
     """
     def __init__(self, cfg: dict):
         """
-        Initializes with defensive configuration loading.
+        Initialization with defensive parsing of the feature_schema.
         """
         self.cfg = cfg
-        # Safe access using .get() to prevent KeyErrors during initialization
-        model_cfg = cfg.get("model", {})
-        feature_cfg = model_cfg.get("features", {})
         
-        self.num_features = feature_cfg.get("numeric", [])
-        self.cat_features = feature_cfg.get("categorical", [])
-        
-        # Mandatory business logic parameters with fallbacks
-        biz_cfg = cfg.get("base", {}).get("business_logic", {})
-        self.ltv_horizon = biz_cfg.get("ltv_horizon_months", 12)
+        # Mapping exactly to your model.yaml keys
+        schema = cfg.get("feature_schema", {})
+        self.target = schema.get("target", "Churned")
+        self.num_features = schema.get("numeric", [])
+        self.cat_features = schema.get("categorical", [])
+        self.excluded = schema.get("excluded", [])
+
+        # Business logic from base config (fallback to 12 if not found)
+        self.ltv_horizon = cfg.get("base", {}).get("business_logic", {}).get("ltv_horizon_months", 12)
 
         if not self.num_features:
-            logger.warning("No numeric features found in configuration!")
+            logger.error("CRITICAL: Numeric features list is empty in config!")
 
     def create_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Main pipeline for feature creation.
+        Transformation pipeline with safe execution.
         """
+        if df.empty:
+            logger.warning("Empty DataFrame passed to FeatureEngineer.")
+            return df
+            
         df = df.copy()
         
         try:
-            df = self._add_ratios(df)
+            df = self._add_derived_ratios(df)
             df = self._bin_age(df)
-            df = self._handle_missing(df)
+            df = self._cleanup_data(df)
             return df
         except Exception as e:
-            logger.error(f"Critical error during feature engineering: {e}")
+            logger.error(f"Failed to engineer features: {str(e)}")
             raise
 
-    def _add_ratios(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _add_derived_ratios(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Calculates LTV to Spend ratio with zero-division protection.
+        Calculates Engagement-to-Spend ratio and LTV metrics.
         """
-        # Protect against missing columns
-        if "Monthly_Spend" in df.columns and "Subscription_Length" in df.columns:
-            # Avoid division by zero by adding a tiny epsilon or using np.where
-            df["ltv_spend_ratio"] = (df["Monthly_Spend"] * df["Subscription_Length"]) / (df["Monthly_Spend"] + 1e-9)
-        else:
-            logger.error("Required columns for ratios are missing from DataFrame")
-            
+        # Safe ratio calculation (Engagement_Score / Monthly_Spend)
+        if "Engagement_Score" in df.columns and "Monthly_Spend" in df.columns:
+            # Using np.where to handle zero-division properly on the whole vector
+            df["engagement_cost_ratio"] = np.where(
+                df["Monthly_Spend"] > 0, 
+                df["Engagement_Score"] / df["Monthly_Spend"], 
+                0
+            )
+        
         return df
 
     def _bin_age(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Bins age into categories with boundary handling.
-        """
+        """Categorizes age into generational bins."""
         if "Age" in df.columns:
-            bins = [0, 18, 30, 45, 60, 120]
-            labels = ["minor", "young_adult", "adult", "senior", "elderly"]
-            df["age_group"] = pd.cut(df["Age"], bins=bins, labels=labels)
+            df["is_senior"] = (df["Age"] >= 60).astype(int)
         return df
 
-    def _handle_missing(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Impute remaining NaNs to prevent model crashes.
-        """
+    def _cleanup_data(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Drops excluded features and handles remaining NaNs."""
+        # Drop leaked or unnecessary columns defined in YAML
+        cols_to_drop = [c for c in self.excluded if c in df.columns]
+        df = df.drop(columns=cols_to_drop)
+
+        # Final sanity check: fill NaNs in numeric features
         for col in self.num_features:
             if col in df.columns:
                 df[col] = df[col].fillna(df[col].median())
+                
         return df
