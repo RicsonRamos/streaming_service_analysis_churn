@@ -1,6 +1,6 @@
-colsample_bytree: 0.9341803241694625
-learning_rate: 0.030810984904122884
+colsample_bytree: 0.7493596208474018
+learning_rate: 0.013086871127735407
 max_depth: 4
-n_estimators: 158
-scale_pos_weight: 1.724826204935333
-subsample: 0.5351628799605872
+n_estimators: 365
+scale_pos_weight: 1.6982068453203256
+subsample: 0.7926532845422541
