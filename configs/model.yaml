@@ -1,28 +1,31 @@
-model:
-  type: xgboost
+model_metadata:
+  algorithm: "xgboost"
+  task: "binary-classification"
+  eval_metric: "auc"
   test_size: 0.2
-  eval_metric: auc
-  early_stopping_rounds: 20
+  early_stopping: 20
 
-features:
-  numeric:
-    - Age
-    - Subscription_Length
-    - Support_Tickets_Raised
-    - Monthly_Spend
-    - Estimated_LTV
-    - Engagement_Score
-
-  categorical:
-    - Gender
-    - Region
-    - Payment_Method
-    
+feature_schema:
   target: "Churned"
-    
-model_params:
+  numeric:
+    - "Age"
+    - "Subscription_Length"
+    - "Support_Tickets_Raised"
+    - "Monthly_Spend"
+    - "Estimated_LTV"
+    - "Engagement_Score"
+  categorical:
+    - "Gender"
+    - "Region"
+    - "Payment_Method"
+  # Features explicitly dropped due to leakage or bias (e.g. Satisfaction_Score)
+  excluded:
+    - "Satisfaction_Score"
+    - "CustomerID"
+
+hyperparameters:
   n_estimators: 100
   max_depth: 6
   learning_rate: 0.1
-  features_to_remove: 
-    - "Satisfaction_Score"
+  subsample: 0.8
+  colsample_bytree: 0.8
