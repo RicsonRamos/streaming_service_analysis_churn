@@ -1,13 +1,15 @@
+"""
+ChurnService: Core logic for data loading, inference, and risk classification.
+"""
 import pandas as pd
 import joblib
 import os
-import streamlit as st
 
 class ChurnService:
-    def __init__(self, model_path, processed_path):
+    def __init__(self, model_path: str, processed_path: str):
         self.model_path = model_path
         self.processed_path = processed_path
-        # As 17 colunas exatas que o seu modelo exige
+        # Strict alignment with the 17 features expected by the trained XGBoost model
         self.expected_features = [
             'Age', 'Subscription_Length', 'Support_Tickets_Raised', 'Satisfaction_Score', 
             'Last_Activity', 'Monthly_Spend', 'Estimated_LTV', 'Engagement_Score',
@@ -17,68 +19,53 @@ class ChurnService:
         ]
 
     def load_assets(self):
+        """Loads model artifacts and the processed historical dataset."""
         if not os.path.exists(self.model_path) or not os.path.exists(self.processed_path):
             return None, None
-        
+
         loaded = joblib.load(self.model_path)
+        # Handle both direct model files and dictionary artifacts
         model = loaded.get('model') if isinstance(loaded, dict) else loaded
         df = pd.read_csv(self.processed_path)
         return model, df
 
-    def predict_churn(self, model, df, threshold):
-        # 1. Preparação
+    def predict_churn(self, model, df: pd.DataFrame, threshold: float) -> pd.DataFrame:
+        """
+        Performs batch inference on the dataset and classifies risk levels.
+        """
         X = df.copy()
         X = pd.get_dummies(X, columns=['Gender', 'Region', 'Payment_Method'])
-        
-        # 2. Alinhamento Forçado (Solução do Shape Mismatch 17 colunas)
+
+        # Force column alignment to prevent shape mismatch (17 feature requirement)
         for col in self.expected_features:
             if col not in X.columns:
                 X[col] = 0
-        
+
         X = X[self.expected_features]
+
+        # Inference
+        probabilities = model.predict_proba(X)[:, 1]
+        df['Probability'] = probabilities
         
-        # 3. Inferência
-        probs = model.predict_proba(X)[:, 1]
-        df['Probabilidade'] = probs
-        df['Nivel_Risco'] = df['Probabilidade'].apply(
-            lambda x: 'Alto' if x >= threshold else ('Médio' if x >= 0.4 else 'Baixo')
+        # English-standard risk classification
+        df['Risk_Level'] = df['Probability'].apply(
+            lambda x: 'High' if x >= threshold else ('Medium' if x >= 0.4 else 'Low')
         )
         return df
-    
-    def get_feature_importance(self, model):
+
+    def predict_single_customer(self, model, customer_data: dict) -> float:
         """
-        Extrai a importância das colunas do modelo XGBoost.
+        Predicts churn probability for a single customer scenario (Simulator).
         """
-        import pandas as pd
-        
-        # Pega as importâncias e associa aos nomes das 17 colunas
-        importances = model.feature_importances_
-        feature_names = self.expected_features
-        
-        fi_df = pd.DataFrame({
-            'Feature': feature_names,
-            'Importance': importances
-        }).sort_values(by='Importance', ascending=False)
-        
-        return fi_df
-    def predict_single_customer(self, model, customer_data):
-        """
-        Recebe um dicionário com os dados de 1 cliente e retorna a probabilidade.
-        """
-        import pandas as pd
-        
-        # Converte para DataFrame
         X_single = pd.DataFrame([customer_data])
-        
-        # Aplica o mesmo One-Hot Encoding do treino
         X_single = pd.get_dummies(X_single)
-        
-        # Alinhamento forçado com as 17 colunas
+
+        # Force alignment with the 17-feature model input
         for col in self.expected_features:
             if col not in X_single.columns:
                 X_single[col] = 0
-        
+
         X_single = X_single[self.expected_features]
         
-        # Retorna a probabilidade (0 a 1)
-        return model.predict_proba(X_single)[0, 1]
+        # Return probability as a float
+        return float(model.predict_proba(X_single)[0, 1])
