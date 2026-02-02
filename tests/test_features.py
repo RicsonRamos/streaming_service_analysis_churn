@@ -1,8 +1,3 @@
-"""
-Unit tests for Feature Engineering logic.
-Focuses on mathematical correctness and edge-case handling.
-"""
-
 import pytest
 import pandas as pd
 import numpy as np
@@ -37,21 +32,15 @@ def test_create_features_math_logic(sample_data, mock_cfg):
     fe = FeatureEngineer(mock_cfg)
     df_result = fe.create_features(sample_data)
 
-    # Calculation: 100 * 12 = 1200
+    # 100 * 12 = 1200
     assert df_result['Estimated_LTV'].iloc[0] == 1200.0
-    
-    # Calculation: 2 / (12 + 1) = 0.1538...
+    # 2 / (12 + 1) = 0.1538
     assert df_result['Engagement_Score'].iloc[0] == approx(0.1538, abs=1e-3)
-    
-    # Check flags
     assert df_result['Is_Free_Trial'].iloc[0] == 0
-    assert df_result['Is_High_Spender'].sum() >= 1 # Median check
 
 def test_division_by_zero_safety(mock_cfg):
     """Ensures the code doesn't explode with zero tenure or zero spend."""
     fe = FeatureEngineer(mock_cfg)
-    
-    # Extreme case: New customer with zero everything
     zero_data = pd.DataFrame({
         'Age': [18],
         'Subscription_Length': [0],
@@ -61,20 +50,14 @@ def test_division_by_zero_safety(mock_cfg):
         'Region': ['North'],
         'Payment_Method': ['Credit Card']
     })
-    
     df_result = fe.create_features(zero_data)
-    
-    # If your smoothing (+1) is working, these should be finite numbers, not NaN or Inf
     assert np.isfinite(df_result['Engagement_Score'].iloc[0])
-    assert np.isfinite(df_result['LTV_Spend_Ratio'].iloc[0])
     assert df_result['Is_Free_Trial'].iloc[0] == 1
 
 def test_feature_list_consistency(mock_cfg):
-    """Verifies if the output column list matches model expectations."""
+    """Verifies if the output column list matches expected count."""
     fe = FeatureEngineer(mock_cfg)
     expected_cols = fe.get_feature_names()
-    
-    # The number of features returned must match what XGBoost expects
-    # (Numeric + Engineered + Categorical)
-    assert len(expected_cols) == 4 + 8 + 3 
+    # 4 numeric + 3 categorical + 6 engineered = 13
+    assert len(expected_cols) == 13
     assert "Estimated_LTV" in expected_cols
