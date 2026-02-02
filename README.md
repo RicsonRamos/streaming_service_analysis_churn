@@ -1,86 +1,76 @@
-# 🛡️ Streaming Service Churn Radar  
-### An End-to-End Data Science Project with Business Impact
 
-This project showcases an **end-to-end data science solution** designed to **reduce customer churn and protect recurring revenue** in a subscription-based streaming service.
+#  Churn Radar: Predictive Streaming Analytics
+**An end-to-end Machine Learning ecosystem for customer retention.**
 
-It demonstrates not only model development, but also **product thinking**, **business metrics**, and **decision support**, bridging the gap between data science and real-world impact.
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![XGBoost 2.0](https://img.shields.io/badge/Model-XGBoost-orange.svg)](https://xgboost.readthedocs.io/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
----
+## Business Value
+In the streaming industry, acquiring a new customer is **5x more expensive** than retaining an existing one. **Churn Radar** identifies high-risk users with **AI-driven precision**, allowing marketing teams to act before the cancellation happens.
 
-## 🎯 Business Problem
-
-Customer churn is one of the main drivers of revenue loss in subscription businesses.
-
-The goal of this project is to:
-- Identify customers at high risk of cancellation
-- Quantify the financial impact of churn
-- Support marketing and retention teams with **actionable insights**, not just predictions
-
----
-
-## 💡 Solution Overview
-
-The solution uses a **machine learning model (XGBoost)** to assign a **churn risk score** to each customer, combined with a **business dashboard** that helps prioritize retention actions.
-
-Key characteristics:
-- Probabilistic churn prediction (not only yes/no)
-- Customer prioritization based on **risk × lifetime value (LTV)**
-- Clear connection between model outputs and business decisions
+### Key Features:
+* **Predictive Engine:** XGBoost model optimized via Optuna Bayesian search.
+* **XAI (Explainable AI):** Integration with SHAP to explain "the why" behind every prediction.
+* **Strategy Simulator:** Real-time "What-If" analysis for retention offers.
+* **Production Ready:** Fully containerized with Docker and validated with Pytest.
 
 ---
 
-## 🧠 Data Science Approach
+## System Architecture
+The project follows a modular "Production-First" structure, ensuring scalability and maintainability.
 
-- Exploratory Data Analysis (EDA) to identify churn drivers
-- Feature engineering and preprocessing using a reproducible pipeline
-- Supervised learning with XGBoost for tabular data
-- Proper handling of class imbalance
-- Model outputs designed for business consumption
 
----
 
-## 📊 Decision Support Dashboard (Streamlit)
-
-The interactive dashboard transforms model predictions into **management-ready insights**:
-
-- **Churn Risk Segmentation:** Low, Medium, and High risk customers
-- **Retention ROI Simulator:** Estimate the financial return of retention strategies
-- **Customer Prioritization Matrix:** Focus efforts where they matter most
-- **Exportable Lead List:** High-risk customers ready for action by marketing or sales teams
+* `src/config/`: Centralized YAML-based configuration (No hardcoded paths).
+* `src/data/`: Data I/O abstraction layer for clean ingestion.
+* `src/features/`: Robust validation (Pydantic) and Feature Engineering logic.
+* `src/models/`: Model wrappers, Baseline comparison, and Hyperparameter Tuning (Optuna).
+* `src/app/`: Streamlit-based Dashboard and Business Logic Services.
+* `tests/`: Unit testing suite for data integrity and model consistency.
 
 ---
 
-## 📈 Key Business Insights
+## Quick Start
 
-Insights uncovered during analysis include:
+### 1. Prerequisites
+* [Docker](https://www.docker.com/) & [Docker Compose](https://docs.docker.com/compose/)
+* Python 3.10+ (for local development)
 
-- Customers with frequent support requests are significantly more likely to churn
-- Low engagement is a strong early warning signal
-- Price increases without perceived value upgrades drive churn in specific regions
-
-These insights can directly inform **retention campaigns, pricing strategy, and customer experience improvements**.
-
----
-
-## 🛠️ Tech Stack
-
-- **Python**
-- **Pandas, NumPy**
-- **Scikit-Learn**
-- **XGBoost**
-- **Streamlit**
-- **Joblib**
-
----
-
-## 🚀 How to Run
+### 2. Setup & Execution via Docker
+Clone the repository and run the entire ecosystem (App + MLflow Tracking):
 
 ```bash
-pip install -r requirements.txt
-python main.py
-streamlit run app.py
+# Clone the repo
+git clone [https://github.com/youruser/churn-radar.git](https://github.com/youruser/churn-radar.git)
+cd churn-radar
 
-👤 About the Author
+# Build and start containers
+docker-compose up --build
 
-Ricson Ramos
-Data Scientist | Machine Learning | Business Analytics  
+The dashboard will be available at http://localhost:8501.
+3. Training the Model
+To retrain the model with the latest data and perform Bayesian optimization:
+docker exec -it churn_radar_prod python scripts/train_model.py
+
+Quality Assurance
+We don't trust "it works on my machine". We trust automated validation.
+# Run the test suite
+pytest tests/ -v
+
+Our validation layer ensures:
+ * Mathematical Correctness: No divisions by zero in feature ratios.
+ * Schema Integrity: Pydantic prevents corrupted data from reaching the model.
+ * Boundary Safety: Rejection of impossible inputs (e.g., age > 100).
+Tech Stack
+ * Core: Python 3.10, Pandas, Scikit-Learn.
+ * ML: XGBoost (Classifier), Optuna (Tuning), SHAP (Interpretability).
+ * Tracking: MLflow.
+ * Dashboard: Streamlit, Plotly.
+ * Infrastructure: Docker, Docker-Compose.
+ * Quality: Pytest, Pydantic, Black, Isort.
+Roadmap
+ * [ ] Implement CI/CD Pipeline via GitHub Actions.
+ * [ ] Add support for Parquet/Avro files for improved I/O.
+ * [ ] Integrate Slack/Email notifications for "High-Risk" alerts.
+Developed with focus on logic, stability, and ROI. 
