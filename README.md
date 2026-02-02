@@ -1,83 +1,264 @@
+# Churn Radar: Predictive Streaming Analytics
 
-#  Churn Radar: Predictive Streaming Analytics
 **An end-to-end Machine Learning ecosystem for customer retention.**
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![XGBoost 2.0](https://img.shields.io/badge/Model-XGBoost-orange.svg)](https://xgboost.readthedocs.io/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+  
+
+---
 
 ## Business Value
-In the streaming industry, acquiring a new customer is **5x more expensive** than retaining an existing one. **Churn Radar** identifies high-risk users with **AI-driven precision**, allowing marketing teams to act before the cancellation happens.
 
-### Key Features:
-* **Predictive Engine:** XGBoost model optimized via Optuna Bayesian search.
-* **XAI (Explainable AI):** Integration with SHAP to explain "the why" behind every prediction.
-* **Strategy Simulator:** Real-time "What-If" analysis for retention offers.
-* **Production Ready:** Fully containerized with Docker and validated with Pytest.
+In the streaming industry, acquiring a new customer is **5x more expensive** than retaining an existing one. **Churn Radar** identifies high-risk users with **AI-driven precision**, enabling proactive retention strategies.
+
+### Key Features
+
+* Predictive engine using XGBoost optimized with Optuna
+* Explainable AI via SHAP
+* Retention strategy simulator (What-if analysis)
+* Production-ready Dockerized environment
+* Automated validation and testing
 
 ---
 
 ## System Architecture
-The project follows a modular "Production-First" structure, ensuring scalability and maintainability.
 
+The project follows a modular, production-oriented structure.
 
-
-* `src/config/`: Centralized YAML-based configuration (No hardcoded paths).
-* `src/data/`: Data I/O abstraction layer for clean ingestion.
-* `src/features/`: Robust validation (Pydantic) and Feature Engineering logic.
-* `src/models/`: Model wrappers, Baseline comparison, and Hyperparameter Tuning (Optuna).
-* `src/app/`: Streamlit-based Dashboard and Business Logic Services.
-* `tests/`: Unit testing suite for data integrity and model consistency.
+```
+churn-radar/
+│
+├── src/
+│   ├── config/     # YAML-based centralized configuration
+│   ├── data/       # Data ingestion and persistence layer
+│   ├── features/   # Validation and feature engineering
+│   ├── models/     # Training, tuning, and inference
+│   └── app/        # Streamlit dashboard and services
+│
+├── scripts/         # Training and maintenance scripts
+├── tests/           # Automated tests
+├── docker-compose.yml
+└── requirements.txt
+```
 
 ---
 
+## Configuration
+
+All runtime configuration is centralized in:
+
+```
+src/config/config.yaml
+```
+
+This file controls:
+
+* Data paths
+* Model parameters
+* MLflow tracking URI
+* Feature flags
+* Environment settings
+
+No absolute paths or secrets should be hardcoded in the source code.
+
+Example:
+
+```yaml
+data:
+  raw_path: data/raw/
+  processed_path: data/processed/
+
+model:
+  name: xgboost
+  max_depth: 6
+  learning_rate: 0.05
+
+mlflow:
+  tracking_uri: http://mlflow:5000
+```
+
+---
 
 ## Quick Start
 
 ### 1. Prerequisites
-* [Docker](https://www.docker.com/) & [Docker Compose](https://docs.docker.com/compose/)
-* Python 3.10+ (for local development)
 
-### 2. Setup & Execution via Docker
-Clone the repository and run the entire ecosystem (App + MLflow Tracking):
+* Docker
+* Docker Compose
+* Python 3.10+ (local development only)
+
+Verify:
 
 ```bash
-# Clone the repo
-git clone [https://github.com/youruser/churn-radar.git](https://github.com/youruser/churn-radar.git)
+docker --version
+docker-compose --version
+python --version
+```
+
+---
+
+### 2. Clone Repository
+
+```bash
+git clone https://github.com/youruser/churn-radar.git
 cd churn-radar
+```
 
-# Build and start containers
+---
+
+### 3. Environment Setup
+
+Create environment file:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` if necessary:
+
+```env
+MLFLOW_TRACKING_URI=http://mlflow:5000
+APP_ENV=production
+```
+
+---
+
+### 4. Run with Docker (Recommended)
+
+Build and start all services:
+
+```bash
 docker-compose up --build
-'''
+```
 
+Services started:
 
-Note: The dashboard will be available at http://localhost:8501.
-___ 
+* Streamlit App: [http://localhost:8501](http://localhost:8501)
+* MLflow Tracking: [http://localhost:5000](http://localhost:5000)
 
+To run in background:
 
-The dashboard will be available at http://localhost:8501.
-3. Training the Model
-To retrain the model with the latest data and perform Bayesian optimization:
+```bash
+docker-compose up -d --build
+```
+
+---
+
+## Model Training
+
+To retrain the model inside the container:
+
+```bash
 docker exec -it churn_radar_prod python scripts/train_model.py
+```
 
-Quality Assurance
-We don't trust "it works on my machine". We trust automated validation.
-# Run the test suite
+This process will:
+
+* Load latest processed data
+* Run Optuna optimization
+* Train final model
+* Log artifacts to MLflow
+* Persist model in `models/` directory
+
+---
+
+## Quality Assurance
+
+Run tests locally or inside container:
+
+```bash
 pytest tests/ -v
+```
 
-Our validation layer ensures:
- * Mathematical Correctness: No divisions by zero in feature ratios.
- * Schema Integrity: Pydantic prevents corrupted data from reaching the model.
- * Boundary Safety: Rejection of impossible inputs (e.g., age > 100).
-Tech Stack
- * Core: Python 3.10, Pandas, Scikit-Learn.
- * ML: XGBoost (Classifier), Optuna (Tuning), SHAP (Interpretability).
- * Tracking: MLflow.
- * Dashboard: Streamlit, Plotly.
- * Infrastructure: Docker, Docker-Compose.
- * Quality: Pytest, Pydantic, Black, Isort.
-Roadmap
- * [ ] Implement CI/CD Pipeline via GitHub Actions.
- * [ ] Add support for Parquet/Avro files for improved I/O.
- * [ ] Integrate Slack/Email notifications for "High-Risk" alerts.
-Developed with focus on logic, stability, and ROI. 
+Validation guarantees:
+
+* No invalid mathematical operations
+* Strict schema enforcement (Pydantic)
+* Input boundary checks
+* Feature consistency
+
+---
+
+## 💻 Local Development (Without Docker)
+
+### 1. Create Virtual Environment
+
+```bash
+python -m venv .venv
+source .venv/bin/activate   # Linux/Mac
+.venv\\Scripts\\activate    # Windows
+```
+
+### 2. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 3. Run Application
+
+```bash
+streamlit run src/app/main.py
+```
+
+### 4. Train Model Locally
+
+```bash
+python scripts/train_model.py
+```
+
+Note: MLflow must be running separately in this mode.
+
+---
+
+## Tech Stack
+
+Core
+
+* Python 3.10
+* Pandas
+* NumPy
+* Scikit-learn
+
+Machine Learning
+
+* XGBoost
+* Optuna
+* SHAP
+
+Tracking & Visualization
+
+* MLflow
+* Streamlit
+* Plotly
+
+Infrastructure & Quality
+
+* Docker / Docker Compose
+* Pytest
+* Pydantic
+* Black
+* Isort
+
+---
+
+## Security & Secrets
+
+* Do not commit `.env` files
+* Use environment variables for credentials
+* Use Docker secrets or Vault in production
+
+---
+
+## Roadmap
+
+*
+
+---
+
+## License
+
+MIT License. See `LICENSE` for details.
+
+---
+
+Developed with focus on engineering rigor, stability, and ROI.
