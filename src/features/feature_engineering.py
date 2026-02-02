@@ -1,62 +1,63 @@
+import pytest
 import pandas as pd
 import numpy as np
-import logging
+from src.features.feature_engineering import FeatureEngineer
+from pytest import approx
 
-logger = logging.getLogger(__name__)
+@pytest.fixture
+def mock_cfg():
+    """Provides a controlled configuration without relying on YAML files."""
+    return {
+        "feature_schema": {
+            "numeric": ["Age", "Subscription_Length", "Monthly_Spend", "Support_Tickets_Raised"],
+            "categorical": ["Gender", "Region", "Payment_Method"]
+        }
+    }
 
-class FeatureEngineer:
-    """
-    Engineers features for the churn model, ensuring consistency with model.yaml.
-    """
-    def __init__(self, cfg: dict):
-        self.cfg = cfg
-        schema = cfg.get("feature_schema", {})
-        self.num_features = schema.get("numeric", [])
-        self.cat_features = schema.get("categorical", [])
-        self.target = schema.get("target", "Churned")
-        self.excluded = schema.get("excluded", [])
+@pytest.fixture
+def sample_data():
+    """Standard customer data for happy-path testing."""
+    return pd.DataFrame({
+        'Age': [25, 40],
+        'Subscription_Length': [12, 1],
+        'Monthly_Spend': [100.0, 50.0],
+        'Support_Tickets_Raised': [2, 0],
+        'Gender': ['Male', 'Female'],
+        'Region': ['North', 'South'],
+        'Payment_Method': ['Credit Card', 'PayPal']
+    })
 
-    def get_feature_names(self) -> list:
-        """
-        Returns the exact list of features expected by the test.
-        The test expects 15 columns: (4 numeric + 8 categorical) + 3 engineered.
-        Adjust this logic to match your specific YAML schema.
-        """
-        engineered = ["spend_per_month", "is_senior", "Estimated_LTV"]
-        return self.num_features + self.cat_features + engineered
+def test_create_features_math_logic(sample_data, mock_cfg):
+    """Checks if the core ratios (LTV, Engagement) are calculated correctly."""
+    fe = FeatureEngineer(mock_cfg)
+    df_result = fe.create_features(sample_data)
 
-    def create_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Main pipeline. Protects against missing 'Engagement_Score' during tests.
-        """
-        df = df.copy()
-        
-        try:
-            # Derived Business Metrics
-            if "Monthly_Spend" in df.columns and "Subscription_Length" in df.columns:
-                df["Estimated_LTV"] = df["Monthly_Spend"] * df["Subscription_Length"]
-                df["spend_per_month"] = df["Monthly_Spend"] / (df["Subscription_Length"] + 1e-9)
-            
-            # Engagement logic (only if column exists, to prevent KeyError in tests)
-            if "Engagement_Score" in df.columns and "Monthly_Spend" in df.columns:
-                df["engagement_cost_ratio"] = df["Engagement_Score"] / (df["Monthly_Spend"] + 1e-9)
+    # 100 * 12 = 1200
+    assert df_result['Estimated_LTV'].iloc[0] == 1200.0
+    # 2 / (12 + 1) = 0.1538
+    assert df_result['Engagement_Score'].iloc[0] == approx(0.1538, abs=1e-3)
+    assert df_result['Is_Free_Trial'].iloc[0] == 0
 
-            # Categorical Bins
-            if "Age" in df.columns:
-                df["is_senior"] = (df["Age"] >= 60).astype(int)
+def test_division_by_zero_safety(mock_cfg):
+    """Ensures the code doesn't explode with zero tenure or zero spend."""
+    fe = FeatureEngineer(mock_cfg)
+    zero_data = pd.DataFrame({
+        'Age': [18],
+        'Subscription_Length': [0],
+        'Monthly_Spend': [0.0],
+        'Support_Tickets_Raised': [0],
+        'Gender': ['Male'],
+        'Region': ['North'],
+        'Payment_Method': ['Credit Card']
+    })
+    df_result = fe.create_features(zero_data)
+    assert np.isfinite(df_result['Engagement_Score'].iloc[0])
+    assert df_result['Is_Free_Trial'].iloc[0] == 1
 
-            # Cleanup: Fill NaNs and drop excluded
-            df = self._final_cleanup(df)
-            return df
-        except Exception as e:
-            logger.error(f"Feature engineering failed: {e}")
-            raise
-
-    def _final_cleanup(self, df: pd.DataFrame) -> pd.DataFrame:
-        cols_to_drop = [c for c in self.excluded if c in df.columns]
-        df = df.drop(columns=cols_to_drop, errors='ignore')
-        
-        for col in self.num_features:
-            if col in df.columns:
-                df[col] = df[col].fillna(df[col].median())
-        return df
+def test_feature_list_consistency(mock_cfg):
+    """Verifies if the output column list matches expected count."""
+    fe = FeatureEngineer(mock_cfg)
+    expected_cols = fe.get_feature_names()
+    # 4 numeric + 3 categorical + 6 engineered = 13
+    assert len(expected_cols) == 13
+    assert "Estimated_LTV" in expected_cols
