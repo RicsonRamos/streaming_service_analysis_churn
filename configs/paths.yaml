@@ -1,12 +1,15 @@
 data:
-  raw: data/raw/streaming.csv
-  interim: data/interim/
-  processed: data/processed/streaming_clean.csv
+  raw_source: "data/raw/streaming.csv"
+  processed_dir: "data/processed/"
+  final_dataset: "data/processed/streaming_clean.csv"
 
-models:
-  artifacts: models/artifacts/
-  churn_model: models/artifacts/churn_model_v1.joblib
+artifacts:
+  model_dir: "models/artifacts/"
+  current_model: "models/artifacts/churn_model_v1.joblib"
+  scaler_pipeline: "models/artifacts/pipeline_v1.joblib"
 
-reports:
-  output: reports/
-  feature_importance_plot: "reports/feature_importance.png"
+outputs:
+  reports_dir: "reports/"
+  metrics_file: "reports/metrics.json"
+  confusion_matrix: "reports/confusion_matrix.png"
+  feature_importance: "reports/feature_importance.png"
