@@ -1,86 +1,106 @@
 import streamlit as st
 import plotly.express as px
+import pandas as pd
 
-def render_metrics(df, threshold):
-    """Exibe os principais KPIs de negócio."""
-    risco_alto = df[df['Nivel_Risco'] == 'Alto']
-    receita_risco = risco_alto['Monthly_Spend'].sum()
-    
+def render_metrics(df: pd.DataFrame):
+    """
+    Displays main business KPIs based on customer risk levels.
+
+    Args:
+        df (pd.DataFrame): Processed dataframe containing 'Risk_Level' and 'Monthly_Spend'.
+    """
+    high_risk_segment = df[df['Risk_Level'] == 'High']
+    revenue_at_risk = high_risk_segment['Monthly_Spend'].sum()
+
     m1, m2, m3 = st.columns(3)
-    m1.metric("Clientes Analisados", f"{len(df):,}")
-    m2.metric("Em Alto Risco", f"{len(risco_alto):,}", f"{len(risco_alto)/len(df):.1%}", delta_color="inverse")
-    m3.metric("Receita em Risco", f"R$ {receita_risco:,.2f}")
+    m1.metric("Analyzed Customers", f"{len(df):,}")
+    m2.metric(
+        "High Risk Customers", 
+        f"{len(high_risk_segment):,}", 
+        f"{len(high_risk_segment)/len(df):.1%}", 
+        delta_color="inverse"
+    )
+    m3.metric("Revenue at Risk", f"USD {revenue_at_risk:,.2f}")
 
-def render_charts(df):
-    """Renderiza gráficos usando chaves únicas dinâmicas."""
+def render_charts(df: pd.DataFrame):
+    """
+    Renders risk prioritization matrix and risk distribution charts.
+
+    Args:
+        df (pd.DataFrame): Dataframe with 'Probability', 'Monthly_Spend', and 'Risk_Level'.
+    """
     col1, col2 = st.columns([2, 1])
-    
+    color_map = {'High': '#EF553B', 'Medium': '#FECB52', 'Low': '#636EFA'}
+
     with col1:
-        st.subheader("🎯 Matriz de Priorização")
-        fig = px.scatter(
-            df, x="Probabilidade", y="Monthly_Spend", color="Nivel_Risco",
-            color_discrete_map={'Alto': '#EF553B', 'Médio': '#FECB52', 'Baixo': '#636EFA'}
+        st.subheader("Prioritization Matrix")
+        fig_scatter = px.scatter(
+            df, x="Probability", y="Monthly_Spend", color="Risk_Level",
+            color_discrete_map=color_map,
+            labels={"Probability": "Churn Probability", "Monthly_Spend": "Monthly Spend ($)"}
         )
-        # Usamos o ID do objeto para garantir que a chave nunca colida
-        st.plotly_chart(fig, width='stretch', key=f"scatter_{id(fig)}")
-        
+        st.plotly_chart(fig_scatter, use_container_width=True, key=f"scatter_{id(fig_scatter)}")
+
     with col2:
-        st.subheader("📊 Distribuição de Risco")
+        st.subheader("Risk Distribution")
         fig_pie = px.pie(
-            df, names='Nivel_Risco', color='Nivel_Risco',
-            color_discrete_map={'Alto': '#EF553B', 'Médio': '#FECB52', 'Baixo': '#636EFA'},
+            df, names='Risk_Level', color='Risk_Level',
+            color_discrete_map=color_map,
             hole=0.4
         )
-        st.plotly_chart(fig_pie, width='stretch', key=f"pie_{id(fig_pie)}")
+        st.plotly_chart(fig_pie, use_container_width=True, key=f"pie_{id(fig_pie)}")
 
-def render_feature_importance(fi_df):
-    """Exibe o gráfico de barras com as causas do Churn."""
-    st.subheader("🧬 DNA do Churn")
+def render_feature_importance(fi_df: pd.DataFrame):
+    """
+    Displays feature importance bar chart to identify churn drivers.
+
+    Args:
+        fi_df (pd.DataFrame): Dataframe containing 'Feature' and 'Importance' columns.
+    """
+    st.subheader("Churn Drivers (DNA)")
     fig_fi = px.bar(
         fi_df.head(10), 
         x='Importance', y='Feature', orientation='h',
-        color='Importance', color_continuous_scale='Reds'
+        color='Importance', color_continuous_scale='Reds',
+        labels={"Importance": "SHAP Impact", "Feature": "Attribute"}
     )
-    st.plotly_chart(fig_fi, width='stretch', key="bar_importance_unique")
-
-  
+    st.plotly_chart(fig_fi, use_container_width=True, key="bar_importance_unique")
 
 def render_simulator(model, service):
     """
-    Cria um formulário na barra lateral para simular novos cenários.
-    """
-    with st.sidebar.expander("🧪 Simulador de Estratégia", expanded=False):
-        st.write("Altere os dados para ver o novo risco:")
-        
-        # Inputs baseados nas suas features (excluindo o Satisfaction_Score viciado)
-        age = st.number_input("Idade", 18, 90, 30)
-        tenure = st.slider("Meses de Contrato", 1, 72, 12)
-        spend = st.number_input("Gasto Mensal (R$)", 10.0, 500.0, 50.0)
-        engagement = st.slider("Score de Engajamento", 1, 10, 5)
-        
-        # Categorias
-        region = st.selectbox("Região", ["North", "South", "East", "West", "Central"])
-        method = st.selectbox("Pagamento", ["Credit Card", "PayPal", "Debit Card"])
-        gender = st.selectbox("Gênero", ["Male", "Female"])
+    Creates a sidebar form to simulate churn probability for new customer scenarios.
 
-        # Botão de Simulação
-        if st.button("Calcular Novo Risco"):
+    Args:
+        model: Trained machine learning model object.
+        service: Service class instance containing prediction logic.
+    """
+    with st.sidebar.expander("Strategy Simulator", expanded=False):
+        st.write("Modify attributes to calculate risk:")
+
+        age = st.number_input("Age", 18, 90, 30)
+        tenure = st.slider("Tenure (Months)", 1, 72, 12)
+        spend = st.number_input("Monthly Spend ($)", 10.0, 500.0, 50.0)
+        engagement = st.slider("Engagement Score", 1, 10, 5)
+
+        region = st.selectbox("Region", ["North", "South", "East", "West", "Central"])
+        method = st.selectbox("Payment Method", ["Credit Card", "PayPal", "Debit Card"])
+        gender = st.selectbox("Gender", ["Male", "Female"])
+
+        if st.button("Run Simulation", use_container_width=True):
             data = {
                 'Age': age, 'Subscription_Length': tenure, 'Monthly_Spend': spend,
                 'Engagement_Score': engagement, 'Gender': gender, 
                 'Region': region, 'Payment_Method': method,
-                # Mantemos os outros campos zerados ou com médias para não quebrar o shape
                 'Support_Tickets_Raised': 0, 'Satisfaction_Score': 5, 
                 'Last_Activity': 15, 'Estimated_LTV': spend * 12
             }
-            
+
             prob = service.predict_single_customer(model, data)
-            
-            # Resultado Visual
+
             st.markdown("---")
-            st.metric("Risco Simulado", f"{prob:.1%}")
-            
+            st.metric("Simulated Risk", f"{prob:.1%}")
+
             if prob > 0.7:
-                st.error("Risco Crítico! Recomenda-se cupom de desconto.")
+                st.error("Critical Risk: Immediate retention offer required.")
             else:
-                st.success("Cliente Saudável.")
+                st.success("Healthy Profile: Low churn probability.")
