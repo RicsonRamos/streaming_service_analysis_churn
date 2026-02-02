@@ -74,7 +74,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Validate Docker Build
-        uses: docker/build-push-action@v5
+        uses: ./docker/build-push-action@v5
         with:
           context: .
           # Correct path to your Dockerfile inside the /docker folder
