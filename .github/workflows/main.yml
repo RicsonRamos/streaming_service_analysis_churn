@@ -58,7 +58,7 @@ jobs:
         pytest --cov=src --cov-report=term-missing
       description: "Executes unit tests and generates a code coverage report."
 
-  # ----------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------
   # JOB 2: Docker Build Validation (Conditional on Job 1 success)
   # ----------------------------------------------------------------------------
   build-docker:
@@ -67,22 +67,19 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-      with:
-        description: "Enables advanced Docker build features like multi-stage caching."
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Validate Docker Build
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        # Points to the refactored directory structure
-        file: docker/Dockerfile
-        push: false # We only want to verify the build, not push to a registry yet
-        tags: streaming-churn-app:latest
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-      description: "Verifies the Dockerfile can build the production image successfully."
+      - name: Validate Docker Build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          # Correct path to your Dockerfile inside the /docker folder
+          file: docker/Dockerfile
+          push: false 
+          tags: streaming-churn-app:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
