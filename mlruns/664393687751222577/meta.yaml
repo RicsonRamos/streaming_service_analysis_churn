@@ -1,0 +1,6 @@
+artifact_location: file:///app/mlruns/664393687751222577
+creation_time: 1770067693587
+experiment_id: '664393687751222577'
+last_update_time: 1770067693587
+lifecycle_stage: active
+name: streaming-churn-prediction

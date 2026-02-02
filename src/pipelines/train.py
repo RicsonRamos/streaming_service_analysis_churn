@@ -14,9 +14,9 @@ from src.config.loader import ConfigLoader
 from src.data.data_loader import DataLoader
 from src.features.feature_engineering import FeatureEngineer
 from src.features.validation import validate_dataframe
-from src.models.xgboost_model import ChurnXGBoost
+from src.models.xgboost import ChurnXGBoost
 from src.models.baseline import BaselineModel
-from src.models.training.tuner import ChurnTuner # Assumindo que você tem este arquivo
+from src.models.training.tuner import ChurnTuner 
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score, accuracy_score
 
@@ -32,17 +32,31 @@ class TrainingPipeline:
         mlflow.set_experiment(self.cfg["project"]["name"])
 
     def prepare_data(self):
-        """Loads, validates, and transforms raw data into training features."""
-        df_raw = self.dl.load_raw_data()
+        """Loads, validates, and transforms raw data while preserving IDs for the dashboard."""
+        # 1. Load (Agora com ID gerado se faltar)
+        df_raw = self.dl.load_raw_data() 
         if not validate_dataframe(df_raw):
             raise ValueError("Data validation failed.")
 
+        # 2. Enriquecimento (Cria as features técnicas)
         df_enriched = self.fe.create_features(df_raw)
-        target = self.cfg["feature_schema"]["target"]
         
-        # Preprocessing: Encoding categorical features
-        # Note: In production, use a Scikit-Learn Pipeline/ColumnTransformer
-        X = df_enriched.drop(columns=[target])
+        # --- PONTO CRÍTICO: SALVAMENTO PARA O DASHBOARD ---
+        # Salvamos o dataset completo (com ID, Churn e Features Brutas)
+        # Isso garante que o main_dash.py encontre a coluna 'Customer_ID'
+        self.dl.save_processed_data(df_enriched)
+        # --------------------------------------------------
+
+        target = self.cfg["feature_schema"]["target"]
+
+
+        cols_to_exclude = [target, 'Customer_ID']
+
+        existing_exclude = [c for c in cols_to_exclude if c in df_enriched.columns]
+
+        X = df_enriched.drop(columns=existing_exclude)
+        
+        # Encoding das categóricas (Gender, Region, etc.)
         X = pd.get_dummies(X, columns=self.cfg["feature_schema"]["categorical"])
         y = df_enriched[target]
         
@@ -85,8 +99,13 @@ class TrainingPipeline:
             mlflow.log_metric("accuracy", acc)
             logger.info(f"Training Complete. AUC: {auc:.4f} | ACC: {acc:.4f}")
 
-            # 5. Persistence (Dashboard & MLflow)
-            model_wrapper.save(self.cfg["artifacts"]["current_model"], feature_names)
+            model_full_path = Path(self.cfg["artifacts"]["current_model"]).resolve()
+            model_full_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            logger.info(f"Saving model to: {model_full_path}")
+            
+            
+            model_wrapper.save(str(model_full_path), feature_names)
             mlflow.sklearn.log_model(model_wrapper.model, "churn_xgboost_model")
 
 if __name__ == "__main__":

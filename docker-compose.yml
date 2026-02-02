@@ -1,27 +1,22 @@
-version: '3.8'
-
 services:
   churn-app:
     build:
-      context: .
+      context: .  # Agora o contexto é a raiz real do projeto
       dockerfile: docker/Dockerfile
     container_name: churn_radar_prod
     ports:
       - "8501:8501"
     volumes:
-      # Mount artifacts and data to persist training results and processed files
-      - ./models/artifacts:/app/models/artifacts
-      - ./data/processed:/app/data/processed
-      - ./reports:/app/reports
+      - .:/app
     environment:
       - ENV=production
-      - MLFLOW_TRACKING_URI=http://mlflow-server:5000 # Caso queira integrar MLflow
+      - PYTHONPATH=/app
+      - CONFIG_PATH=/app/configs # Força o caminho que o loader procura
     restart: unless-stopped
 
-  # Opcional: Container para o MLflow Tracking UI
   mlflow-server:
     image: ghcr.io/mlflow/mlflow:latest
     container_name: churn_mlflow
     ports:
       - "5000:5000"
-    command: mlflow ui --host 0.0.0.0
+    command: mlflow server --host 0.0.0.0 --backend-store-uri sqlite:///mlflow.db
