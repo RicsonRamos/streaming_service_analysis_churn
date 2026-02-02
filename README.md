@@ -99,7 +99,7 @@ python --version
 ### 2. Clone Repository
 
 ```bash
-git clone https://github.com/youruser/churn-radar.git
+git clone https://github.com/RicsonRamos/streaming_service_analysis_churn
 cd churn-radar
 ```
 
