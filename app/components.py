@@ -1,14 +1,14 @@
+"""
+UI Components and visualization logic for the Churn Radar Dashboard.
+"""
 import streamlit as st
 import plotly.express as px
 import pandas as pd
+import matplotlib.pyplot as plt
+import shap
 
 def render_metrics(df: pd.DataFrame):
-    """
-    Displays main business KPIs based on customer risk levels.
-
-    Args:
-        df (pd.DataFrame): Processed dataframe containing 'Risk_Level' and 'Monthly_Spend'.
-    """
+    """Displays main business KPIs based on customer risk levels."""
     high_risk_segment = df[df['Risk_Level'] == 'High']
     revenue_at_risk = high_risk_segment['Monthly_Spend'].sum()
 
@@ -23,12 +23,7 @@ def render_metrics(df: pd.DataFrame):
     m3.metric("Revenue at Risk", f"USD {revenue_at_risk:,.2f}")
 
 def render_charts(df: pd.DataFrame):
-    """
-    Renders risk prioritization matrix and risk distribution charts.
-
-    Args:
-        df (pd.DataFrame): Dataframe with 'Probability', 'Monthly_Spend', and 'Risk_Level'.
-    """
+    """Renders risk prioritization matrix and risk distribution charts."""
     col1, col2 = st.columns([2, 1])
     color_map = {'High': '#EF553B', 'Medium': '#FECB52', 'Low': '#636EFA'}
 
@@ -50,30 +45,56 @@ def render_charts(df: pd.DataFrame):
         )
         st.plotly_chart(fig_pie, use_container_width=True, key=f"pie_{id(fig_pie)}")
 
-def render_feature_importance(fi_df: pd.DataFrame):
+def render_explainability(model, df_sample: pd.DataFrame):
     """
-    Displays feature importance bar chart to identify churn drivers.
-
-    Args:
-        fi_df (pd.DataFrame): Dataframe containing 'Feature' and 'Importance' columns.
+    Renders SHAP-based explainability chart with professional color coding.
     """
-    st.subheader("Churn Drivers (DNA)")
-    fig_fi = px.bar(
-        fi_df.head(10), 
-        x='Importance', y='Feature', orientation='h',
-        color='Importance', color_continuous_scale='Reds',
-        labels={"Importance": "SHAP Impact", "Feature": "Attribute"}
+    st.subheader("Churn Drivers (XAI)")
+    
+    # 1. Generate SHAP values
+    explainer = shap.TreeExplainer(model)
+    shap_values = explainer.shap_values(df_sample)
+    
+    # 2. Style configuration
+    COLOR = "#5A5A5A" 
+    plt.rcParams.update({'text.color': COLOR, 'axes.labelcolor': COLOR, 'xtick.color': COLOR, 'ytick.color': COLOR})
+    fig, ax = plt.subplots(figsize=(10, 5))
+    
+    # 3. Generate SHAP Plot
+    shap.plots.bar(
+        shap.Explanation(
+            values=shap_values[0], 
+            base_values=explainer.expected_value, 
+            data=None, 
+            feature_names=df_sample.columns.tolist()
+        ), 
+        max_display=10, 
+        show=False
     )
-    st.plotly_chart(fig_fi, use_container_width=True, key="bar_importance_unique")
+
+    # 4. Professional Color Sync & Label Cleanup
+    blue_retention = "#008bfb"
+    red_churn = "#ff0051"
+
+    for patch in ax.patches:
+        rgb = patch.get_facecolor()
+        patch.set_facecolor(blue_retention if rgb[0] < rgb[2] else red_churn)
+
+    for text in ax.texts:
+        t_val = text.get_text()
+        text.set_color(blue_retention if '-' in t_val else red_churn if '+' in t_val else COLOR)
+
+    ax.grid(False)
+    ax.set_xlabel("")
+    ax.set_xticks([])
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+
+    st.pyplot(fig, clear_figure=True, transparent=True)
+    plt.close(fig)
 
 def render_simulator(model, service):
-    """
-    Creates a sidebar form to simulate churn probability for new customer scenarios.
-
-    Args:
-        model: Trained machine learning model object.
-        service: Service class instance containing prediction logic.
-    """
+    """Creates a sidebar form to simulate churn probability."""
     with st.sidebar.expander("Strategy Simulator", expanded=False):
         st.write("Modify attributes to calculate risk:")
 
@@ -81,7 +102,6 @@ def render_simulator(model, service):
         tenure = st.slider("Tenure (Months)", 1, 72, 12)
         spend = st.number_input("Monthly Spend ($)", 10.0, 500.0, 50.0)
         engagement = st.slider("Engagement Score", 1, 10, 5)
-
         region = st.selectbox("Region", ["North", "South", "East", "West", "Central"])
         method = st.selectbox("Payment Method", ["Credit Card", "PayPal", "Debit Card"])
         gender = st.selectbox("Gender", ["Male", "Female"])
@@ -96,7 +116,6 @@ def render_simulator(model, service):
             }
 
             prob = service.predict_single_customer(model, data)
-
             st.markdown("---")
             st.metric("Simulated Risk", f"{prob:.1%}")
 
