@@ -100,7 +100,7 @@ python --version
 
 ```bash
 git clone https://github.com/RicsonRamos/streaming_service_analysis_churn
-cd churn-radar
+cd streaming_service_analysis_churn
 ```
 
 ---
