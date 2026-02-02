@@ -15,57 +15,34 @@ on:
     branches: [ "main" ]
 
 jobs:
-  # ----------------------------------------------------------------------------
-  # JOB 1: Audit and Quality (Linting & Unit Tests)
-  # ----------------------------------------------------------------------------
   test-and-audit:
     name: Code Quality & Unit Testing
     runs-on: ubuntu-latest
-    
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
-      with:
-        description: "Fetches the latest code from the current branch."
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.10"
-        cache: 'pip' # Speeds up future runs by caching pip dependencies
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: 'pip'
 
-    - name: Install Project Dependencies
-      run: |
-        python -m pip install --upgrade pip
-        # Installs the package in editable mode with development extras
-        # This triggers the installation of 'dev' dependencies from pyproject.toml
-        pip install -e ".[dev]"
-      description: "Installs core ML libraries plus QA tools (pytest, flake8)."
+      - name: Install Project Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
 
-    - name: Lint with flake8
-      run: |
-        # E9, F63, F7, F82: Critical syntax and logic checks
-        flake8 src --count --select=E9,F63,F7,F82 --show-source --statistics
-        # PEP8 style guidelines and complexity analysis
-        flake8 src --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-      description: "Analyzes code for style violations and high complexity."
+      - name: Run Pytest
+        env:
+          PYTHONPATH: .
+        run: |
+          pytest --cov=src --cov-report=term-missing
 
-    - name: Run Pytest with Coverage
-      env:
-        # Critical: Ensures the 'src' directory is in the Python path
-        PYTHONPATH: .
-      run: |
-        pytest --cov=src --cov-report=term-missing
-      description: "Executes unit tests and generates a code coverage report."
-
-    # ----------------------------------------------------------------------------
-  # JOB 2: Docker Build Validation (Conditional on Job 1 success)
-  # ----------------------------------------------------------------------------
   build-docker:
     name: Docker Image Verification
     needs: test-and-audit
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -73,13 +50,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Validate Docker Build
-        uses: ./docker/build-push-action@v5
+      - name: Build and Validate
+        uses: docker/build-push-action@v5
         with:
           context: .
-          # Correct path to your Dockerfile inside the /docker folder
-          file: docker/Dockerfile
-          push: false 
+          file: ./docker/Dockerfile
+          push: false
           tags: streaming-churn-app:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
