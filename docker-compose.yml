@@ -1,22 +1,45 @@
 services:
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    container_name: mlflow_server
+    hostname: mlflow
+    networks:
+      - churn_network
+    ports:
+      - "5000:5000"
+    command: >
+      mlflow server 
+      --host 0.0.0.0 
+      --port 5000 
+      --backend-store-uri sqlite:////app/mlflow.db 
+      --default-artifact-root /app/artifacts
+    volumes:
+      - ./mlflow_data:/app
+
   churn-app:
     build:
-      context: .  # Agora o contexto é a raiz real do projeto
+      context: .
       dockerfile: docker/Dockerfile
     container_name: churn_radar_prod
+    stdin_open: true 
+    tty: true
     ports:
       - "8501:8501"
     volumes:
       - .:/app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - ENV=production
       - PYTHONPATH=/app
-      - CONFIG_PATH=/app/configs # Força o caminho que o loader procura
+      - CONFIG_PATH=/app/configs
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    networks:
+      - churn_network
+    depends_on:
+      - mlflow
     restart: unless-stopped
 
-  mlflow-server:
-    image: ghcr.io/mlflow/mlflow:latest
-    container_name: churn_mlflow
-    ports:
-      - "5000:5000"
-    command: mlflow server --host 0.0.0.0 --backend-store-uri sqlite:///mlflow.db
+networks:
+  churn_network:
+    driver: bridge

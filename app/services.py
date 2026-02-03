@@ -2,6 +2,7 @@
 ChurnService: Core logic for data loading, inference, and risk classification.
 Handles feature engineering alignment between training and production.
 """
+import streamlit as st
 import pandas as pd
 import joblib
 import os
@@ -54,24 +55,32 @@ class ChurnService:
             return None, None
 
     def _align_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Dynamically aligns the DataFrame with the model's expected features.
-        This handles the One-Hot Encoding (Dummies) mismatch.
-        """
-        # 1. Use the official FeatureEngineer to get business features
+        # 1. Gera as features técnicas
         X = self.fe.create_features(df)
         
-        # 2. Apply One-Hot Encoding for categorical features defined in config
+        # 2. Encoding das categóricas via YAML
         cat_cols = self.cfg.get("feature_schema", {}).get("categorical", [])
-        X = pd.get_dummies(X, columns=cat_cols)
+        X = pd.get_dummies(X, columns=[c for c in cat_cols if c in X.columns])
         
-        # 3. SMART ALIGNMENT: 
-        # Add missing columns (as 0) and filter/reorder to match the model EXACTLY
+        # 3. Alinhamento com as colunas do modelo
         for col in self.model_features:
             if col not in X.columns:
                 X[col] = 0
-                
-        return X[self.model_features]
+        
+        X = X[self.model_features]
+
+        # --- A LINHA QUE SALVA SUA VIDA ---
+        # Converte tudo para float. Se houver uma string, o Python vai gritar o erro aqui
+        # com o nome da coluna culpada, em vez de crashar o SHAP.
+        try:
+            X = X.apply(pd.to_numeric, errors='raise').astype(float)
+        except Exception as e:
+            logger.error(f"Erro de conversão de tipo: {e}")
+            # Se falhar, vamos identificar quais colunas ainda são 'object'
+            bad_cols = X.select_dtypes(include=['object']).columns.tolist()
+            raise ValueError(f"As seguintes colunas não são numéricas: {bad_cols}")
+            
+        return X
 
     def predict_churn(self, model, df: pd.DataFrame, threshold: float) -> pd.DataFrame:
         """Performs batch inference while preserving original identification columns."""
@@ -96,29 +105,18 @@ class ChurnService:
         
         prob = model.predict_proba(X_single)[0, 1]
         return float(prob)
-
-    def get_shap_explanation(self, model, df_input: pd.DataFrame):
+    
+    @st.cache_data
+    def get_shap_explanation(_self, _model, df_input: pd.DataFrame): # Adicione _ no self e no model
         """
-        Generates SHAP values with a fallback for version-mismatch errors.
-        Ensures the explainer can handle the XGBoost base_score string issue.
+        Generates SHAP values. The leading underscores in _self and _model 
+        prevent Streamlit from trying to hash these complex objects.
         """
-        # 1. Alinha as colunas para o formato que o modelo espera
-        X_aligned = self._align_features(df_input)
+        X_aligned = _self._align_features(df_input)
         
-        try:
-            # Tenta o modo padrão (mais rápido)
-            explainer = shap.TreeExplainer(model)
-            shap_values = explainer.shap_values(X_aligned)
-            expected_value = explainer.expected_value
-        except Exception as e:
-            # FALLBACK: Se o XGBoost e o SHAP brigarem pelo base_score (o erro [4.48E-1])
-            # Usamos o modo interventional apontando para X_aligned (corrigido)
-            explainer = shap.TreeExplainer(
-                model, 
-                data=X_aligned, 
-                feature_perturbation="interventional"
-            )
-            shap_values = explainer.shap_values(X_aligned)
-            expected_value = explainer.expected_value
-
-        return shap_values, X_aligned, expected_value
+        # API Moderna do SHAP (mais estável com XGBoost)
+        explainer = shap.Explainer(_model, X_aligned)
+        shap_values = explainer(X_aligned)
+        
+        # O Explainer moderno já traz o expected_value dentro do objeto shap_values
+        return shap_values, X_aligned, shap_values.base_values[0]

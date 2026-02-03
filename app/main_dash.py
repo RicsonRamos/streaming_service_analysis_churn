@@ -110,10 +110,7 @@ with st.expander("View Global Feature Importance", expanded=False):
         # USANDO A MANEIRA INTELIGENTE: 
         # O serviço cuida de alinhar, processar e calcular.
         # Limitamos a 100 amostras para não travar o Dashboard.
-        shap_values, X_processed, expected_value = service.get_shap_explanation(
-            model, 
-            df_history.head(100) 
-        )
+        shap_values, X_processed, expected_value = service.get_shap_explanation(model, df_history.head(100))
         
         # Agora passamos os dados JÁ PROCESSADOS para o componente de UI
         # Isso garante que os nomes das colunas apareçam no gráfico.

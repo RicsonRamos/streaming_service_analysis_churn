@@ -22,6 +22,7 @@ feature_schema:
   excluded:
     - "Satisfaction_Score"
     - "CustomerID"
+    - "Last_Activity"
 
 hyperparameters:
   n_estimators: 100

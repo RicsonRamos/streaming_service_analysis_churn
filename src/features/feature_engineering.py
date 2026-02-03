@@ -73,6 +73,9 @@ class FeatureEngineer:
             if self.id_col not in X.columns:
                 logger.debug(f"Note: {self.id_col} not in dataframe. Proceeding without ID.")
 
+            cols_to_drop = ['Last_Activity', 'Satisfaction_Score']
+            X = X.drop(columns=[c for c in cols_to_drop if c in X.columns])
+
             return X
             
         except Exception as e:

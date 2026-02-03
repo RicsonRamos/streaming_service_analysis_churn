@@ -1,11 +1,14 @@
 """
 UI Components and visualization logic for the Churn Radar Dashboard.
 """
+import numpy as np
 import streamlit as st
 import plotly.express as px
 import pandas as pd
 import matplotlib.pyplot as plt
 import shap
+
+from src.utils.styles import CHART_THEME, apply_chart_style
 
 def render_metrics(df: pd.DataFrame):
     """Displays main business KPIs based on customer risk levels."""
@@ -45,74 +48,6 @@ def render_charts(df: pd.DataFrame):
             hole=0.4
         )
         st.plotly_chart(fig_pie, use_container_width=True)
-
-def render_explainability(model, df_sample: pd.DataFrame):
-    """
-    Renders a minimalist SHAP bar chart strictly limited to the top 3 features.
-    Forces the limit by filtering data before plotting to guarantee results.
-    """
-    st.write("### 🧬 Top 3 Churn Drivers")
-    
-    friendly_names = {
-        'Age': 'Customer Age',
-        'Subscription_Length': 'Tenure (Months)',
-        'Support_Tickets_Raised': 'Support Interactions',
-        'Monthly_Spend': 'Monthly Billing',
-        'Estimated_LTV': 'Lifetime Value',
-        'Engagement_Score': 'App Engagement',
-        'LTV_Spend_Ratio': 'Efficiency Ratio',
-        'is_senior': 'Senior Citizen (60+)',
-        'Is_Free_Trial': 'On Free Trial',
-        'Is_High_Spender': 'High Spender Flag',
-        'Satisfaction_Score': 'Satisfaction Rating'
-    }
-
-    try:
-        # 1. Calcular SHAP valores
-        explainer = shap.TreeExplainer(model)
-        shap_values = explainer.shap_values(df_sample)
-
-        # 2. Identificar as 3 colunas com maior impacto médio (Cálculo manual do Top 3)
-        # lidando com o fato de shap_values poder vir como lista (multi-class) ou array
-        vals = np.abs(shap_values).mean(0)
-        feature_importance = pd.DataFrame(list(zip(df_sample.columns, vals)), columns=['col','feature_importance_vals'])
-        feature_importance.sort_values(by=['feature_importance_vals'], ascending=False, inplace=True)
-        
-        # Pegamos apenas o nome das 3 colunas mais importantes
-        top_3_cols = feature_importance['col'].head(3).tolist()
-        
-        # 3. Filtrar os dados e os SHAP values para conter apenas essas 3
-        # Localizamos os índices das colunas top 3 no dataframe original
-        indices = [df_sample.columns.get_loc(c) for c in top_3_cols]
-        filtered_shap_values = shap_values[:, indices]
-        filtered_df = df_sample[top_3_cols].rename(columns=friendly_names)
-
-        # 4. Plotagem com os dados já podados
-        plt.clf()
-        fig, ax = plt.subplots(figsize=(10, 3)) # Reduzi a altura para 3 para ficar bem focado
-        
-        shap.summary_plot(
-            filtered_shap_values, 
-            filtered_df, 
-            plot_type="bar", 
-            show=False, 
-            color="#2E5077"
-        )
-
-        # Limpeza Storytelling
-        ax.set_xlabel("")
-        ax.set_xticks([]) 
-        for spine in ['top', 'right', 'bottom']:
-            ax.spines[spine].set_visible(False)
-        
-        ax.tick_params(axis='y', labelsize=12)
-        plt.title("Primary drivers of customer loss", loc='left', fontsize=12, pad=15)
-
-        st.pyplot(fig, transparent=True)
-        plt.close(fig)
-
-    except Exception as e:
-        st.error(f"Force limit failed: {e}")
 
 def render_simulator(model, service):
     """Creates a sidebar form to simulate churn probability using raw inputs."""
@@ -165,87 +100,77 @@ def render_simulator(model, service):
             except Exception as e:
                 st.error(f"Error in prediction: {e}")
 
-def render_explainability(shap_values, X_processed, expected_value=None):
+def render_explainability(shap_values, X_processed):
     """
-    Renders SHAP visualizations with Storytelling with Data principles.
-    Focuses on business-friendly labels, transparency, and high signal-to-noise ratio.
-    """
-    st.write("### What is driving our customers away?")
+    Renders a minimalist SHAP bar chart for the top 3 global features.
     
-    if X_processed is None or len(X_processed) == 0:
-        st.warning("No data available to explain.")
-        return
+    This component filters the importance matrix to highlight only the 
+    primary churn drivers, reducing cognitive load for business users.
+    It applies a custom theme for visual consistency across the dashboard.
 
-    # 1. Map technical names to Business English
-    friendly_names = {
-        'Age': 'Customer Age',
-        'Subscription_Length': 'Tenure (Months)',
-        'Support_Tickets_Raised': 'Support Interactions',
-        'Monthly_Spend': 'Monthly Billing',
-        'Estimated_LTV': 'Lifetime Value',
-        'Engagement_Score': 'App Engagement',
-        'LTV_Spend_Ratio': 'Efficiency Ratio',
-        'is_senior': 'Senior Citizen (60+)',
-        'Is_Free_Trial': 'On Free Trial',
-        'Is_High_Spender': 'High Spender Flag',
-        'Satisfaction_Score': 'Satisfaction Rating'
-    }
-    
-    # Create a copy with renamed columns for the plot
-    X_plot = X_processed.rename(columns=friendly_names)
+    Args:
+        shap_values: The SHAP values object from the explainer.
+        X_processed (pd.DataFrame): The preprocessed feature matrix 
+            used for inference.
+    """
+    st.write("### Top 3 Churn Drivers")
 
     try:
-        # Clear any existing plots to avoid ghosting
-        plt.clf()
-        fig, ax = plt.subplots(figsize=(5, 3))
-        
-        if len(X_processed) > 1:
-            # GLOBAL EXPLANATION
-            shap.summary_plot(
-                shap_values, 
-                X_plot, 
-                plot_type="bar", 
-                show=False,
-                color="#2E5077" # Slate Blue (Low cognitive load)
-            )
-        else:
-            # LOCAL EXPLANATION (Simulator)
-            exp = shap.Explanation(
-                values=shap_values[0],
-                base_values=expected_value if expected_value is not None else 0,
-                data=X_plot.iloc[0].values,
-                feature_names=X_plot.columns.tolist()
-            )
-            shap.plots.bar(exp, show=False)
+        # Friendly naming mapping for business clarity
+        friendly_names = {
+            'Support_Tickets_Raised': 'Support Interactions',
+            'Monthly_Spend': 'Monthly Billing',
+            'Subscription_Length': 'Tenure (Months)',
+            'Age': 'Customer Age',
+            'Engagement_Score': 'App Engagement'
+        }
 
-        # 2. STORYTELLING CLEANUP (Decluttering)
-        ax.set_xlabel("") # Remove SHAP value label
-        ax.set_xticks([]) # Remove X axis numbers
+        # Calculate mean absolute SHAP values to identify top drivers
+        if hasattr(shap_values, 'values'):
+            mean_abs_shap = np.abs(shap_values.values).mean(0)
+        else:
+            mean_abs_shap = np.abs(shap_values).mean(0)
+
+        # Force top 3 feature selection
+        top_3_indices = np.argsort(mean_abs_shap)[-3:]
         
-        # Remove borders (Spines)
-        for spine in ["top", "right", "bottom"]:
-            ax.spines[spine].set_visible(False)
-        
-        ax.spines['left'].set_color('#CCCCCC') # Faint Y axis line
-        
-        # Style Y-axis labels
-        ax.tick_params(axis='y', colors='#444444', labelsize=11)
-        
-        # 3. Action-oriented Title
-        plt.title(
-            "Top Predictors of Churn Risk\n(Longer bars indicate stronger impact)", 
-            loc='left', 
-            fontsize=12, 
-            color="#6B6B6B",
-            pad=20
+        # Create a sliced Explanation object to avoid the 'Sum of other features' bar
+        exp_top3 = shap.Explanation(
+            values=shap_values.values[:, top_3_indices] if hasattr(shap_values, 'values') else shap_values[:, top_3_indices],
+            data=X_processed.iloc[:, top_3_indices].values,
+            feature_names=[friendly_names.get(col, col) for col in X_processed.columns[top_3_indices]]
         )
 
-        # Force transparent background for Streamlit Dark/Light mode compatibility
+        # Plot setup with centralized styling
+        plt.clf()
+        fig, ax = plt.subplots(figsize=(8, 3), facecolor=CHART_THEME["bg_color"])
+        
+        # Render SHAP bars with primary brand color
+        shap.plots.bar(exp_top3, show=False)
+
+        for patch in ax.patches:
+            patch.set_facecolor(CHART_THEME["primary_color"])
+            patch.set_edgecolor(CHART_THEME["bg_color"])
+
+        # Apply global styling (removes spines, sets fonts and colors)
+        ax = apply_chart_style(ax)
+
+        ax.get_xaxis().set_visible(False)
+        ax.spines['bottom'].set_visible(False)
+        
+        plt.title(
+            "Primary drivers of customer loss", 
+            loc='left', 
+            fontsize=CHART_THEME["font_size_title"],
+            color=CHART_THEME["text_color"],
+            pad=15
+        )
+
         st.pyplot(fig, transparent=True)
         plt.close(fig)
-            
+
     except Exception as e:
-        st.error(f"Visualization Error: {e}")
+        st.error(f"UI Error: Failed to render explainability component: {e}")
 
 def render_priority_list(high_risk_df: pd.DataFrame):
     """
