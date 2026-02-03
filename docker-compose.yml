@@ -1,45 +1,76 @@
+networks:
+  churn_network:
+    driver: bridge
+
+volumes:
+  mlflow_data:
+  mlflow_artifacts:
+
 services:
+
   mlflow:
     image: ghcr.io/mlflow/mlflow:latest
-    container_name: mlflow_server
-    hostname: mlflow
-    networks:
-      - churn_network
+    container_name: mlflow
+    restart: unless-stopped
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri sqlite:////mlflow_data/mlflow.db
+      --default-artifact-root /mlflow_artifacts
+      --allowed-hosts "*"
     ports:
       - "5000:5000"
-    command: >
-      mlflow server 
-      --host 0.0.0.0 
-      --port 5000 
-      --backend-store-uri sqlite:////app/mlflow.db 
-      --default-artifact-root /app/artifacts
     volumes:
-      - ./mlflow_data:/app
+      - mlflow_data:/mlflow_data
+      - mlflow_artifacts:/mlflow_artifacts
+    networks:
+      - churn_network
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:5000\")'"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 10s
+
 
   churn-app:
     build:
       context: .
       dockerfile: docker/Dockerfile
     container_name: churn_radar_prod
-    stdin_open: true 
-    tty: true
+    restart: unless-stopped
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    environment:
+      ENV: production
+      PYTHONPATH: /app
+      CONFIG_PATH: /app/configs
+      MLFLOW_TRACKING_URI: http://mlflow:5000
     ports:
       - "8501:8501"
-    volumes:
-      - .:/app
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    environment:
-      - ENV=production
-      - PYTHONPATH=/app
-      - CONFIG_PATH=/app/configs
-      - MLFLOW_TRACKING_URI=http://mlflow:5000
     networks:
       - churn_network
-    depends_on:
-      - mlflow
-    restart: unless-stopped
 
-networks:
-  churn_network:
-    driver: bridge
+  trainer:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: churn_trainer
+    restart: "no"
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    environment:
+      ENV: production
+      PYTHONPATH: /app
+      CONFIG_PATH: /app/configs
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    networks:
+      - churn_network
+    volumes:
+      - mlflow_artifacts:/mlflow_artifacts
+      - mlflow_data:/mlflow_data
+    entrypoint: ["/app/docker/wait-for-mlflow.sh", "python", "src/pipelines/train.py"]
+

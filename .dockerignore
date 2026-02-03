@@ -1,10 +1,7 @@
+.git
 .venv
 __pycache__
-.pytest_cache
-.github
-.git
-tests
-notebooks
+*.pyc
 *.log
-data/raw/*
-!data/raw/.gitkeep
+.env
+node_modules
