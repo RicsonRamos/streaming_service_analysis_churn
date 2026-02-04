@@ -135,11 +135,12 @@ http://localhost:8501
 ```
 ### Project Structure
 
+streaming-churn-analysis/
 ├── configs/ # Centralized configurations (YAML)
 ├── data/ # Raw, intermediate, and processed data
 ├── models/ # Model binaries and pipelines (.joblib)
 ├── notebooks/ # Exploratory Data Analysis (EDA) and prototyping
-├── reports\ # Graphs and metrics reports
+├── reports/ # Graphs and metrics reports
 ├── src/ # Modularized code (Data, Features, Pipelines)
 └── docker/ # Dockerfiles and infrastructure
 
