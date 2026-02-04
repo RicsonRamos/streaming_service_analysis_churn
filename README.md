@@ -107,31 +107,32 @@ The project is 100% containerized. Make sure you have Docker installed.
 
 1. **Clone the repository:**
 
-``bash
+```bash
 git clone https://github.com/RicsonRamos/streaming_service_analysis_churn.git
-
-cd streaming-churn-analysis
+cd streaming-churn-analys
+```
 
 2. Start the environment (App + MLflow):
 
-``bash
+```bash
 docker-compose up -d --build
+```
 
 3. Run the training pipeline:
 
-``bash
+```bash
 docker exec -it churn_radar_prod python src/pipelines/train.py
-
+```
 4. Access the MLflow interface:
 
-``bash
+```bash
 http://localhost:5000
-
+```
 5. Access the Streamlit interface:
 
-``bash
+```bash
 http://localhost:8501
-
+```
 ### Project Structure
 
 ├── configs/ # Centralized configurations (YAML)
