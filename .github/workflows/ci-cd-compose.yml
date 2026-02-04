@@ -57,7 +57,7 @@ jobs:
 
       # Upload de artefatos promovidos como artifact do GitHub
       - name: Upload promoted artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: churn-mlflow-artifacts
           path: ./mlruns_promoted/
