@@ -57,16 +57,16 @@ The final model based on **XGBoost** achieved solid metrics, demonstrating a hig
 ## Visual Assessment
 
 ### Confusion Matrix and ROC Curve
-![Confusion Matrix](reports\figures\xgb_v1_confusion_matrix.png)
+![Confusion Matrix](reports/figures/xgb_v1_confusion_matrix.png)
 
 ### ROC Curve
-![ROC Curve](reports\figures\xgb_v1_roc_curve.png)
+![ROC Curve](reports/figures/xgb_v1_roc_curve.png)
 
 ### MLflow – Experiment Tracking
-![MLflow Dashboard](reports\figures\mlflow_dashboard.png)
+![MLflow Dashboard](reports/figures/mlflow_dashboard.png)
 
 ## Features Importance
-![Feature Importance](reports\figures\feature_importance.png)
+![Feature Importance](reports/figures/feature_importance.png)
 
 Understanding the factors that influence churn is as important as predicting it.
 
