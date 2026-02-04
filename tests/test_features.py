@@ -57,7 +57,7 @@ def test_division_by_zero_safety(mock_cfg):
 def test_feature_list_consistency(mock_cfg):
     """Verifies if the output column list matches expected count."""
     fe = FeatureEngineer(mock_cfg)
-    expected_cols = fe.get_feature_names()
+    expected_cols = fe.get_model_feature_names()
     # 4 numeric + 3 categorical + 6 engineered = 13
     assert len(expected_cols) == 13
     assert "Estimated_LTV" in expected_cols
