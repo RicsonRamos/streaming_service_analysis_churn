@@ -1,264 +1,159 @@
-# Churn Radar: Predictive Streaming Analytics
+# Streaming Service Churn Radar
 
-**An end-to-end Machine Learning ecosystem for customer retention.**
+[![Python](https://img.shields.io/badge/Python-3.10-blue.svg)](https://www.python.org/)
+[![Docker](https://img.shields.io/badge/Docker-Enabled-blue.svg)](https://www.docker.com/)
+[![MLflow](https://img.shields.io/badge/MLflow-Tracking-orange.svg)](https://mlflow.org/)
+[![XGBoost](https://img.shields.io/badge/Model-XGBoost-green.svg)](https://xgboost.readthedocs.io/)
 
-  
+Complete reproducible, traceable and business-oriented Machine Learning pipeline for churn prediction in a streaming service. This project was developed as an applied technical portfolio project, with architecture and decisions aligned with real-world production scenarios, using only local infrastructure (without cloud dependencies or managed services).
+
+> Scope: applied project / technical portfolio, with architecture aligned with production scenarios, but without external dependencies (cloud, managed services).
+
+## Business Objective
+
+Reduce churn by identifying customers with a higher probability of cancellation, enabling:
+
+- Proactive retention actions
+- Efficient campaign prioritization
+- Reduction of marginal cost per retained customer
+
+The problem is modeled as a binary classification, focusing on risk ranking, prioritizing metrics robust to imbalance and relevant for decision-making.
+
+---
+## Data
+
+- Type: aggregated tabular data by customer
+- Features: behavioral, demographic, and usage history
+- Target: churn (0 = active, 1 = canceled)
+- Pre-processing: cleaning, encoding, and feature engineering performed via pipeline
+
+> Note: the dataset is treated as static for project purposes. There is no explicit data versioning (e.g., DVC).
+
+## Modeling
+
+- Model: XGBoost (Gradient Boosting Trees)
+- Baseline: Implicit (simple model used during EDA, not included in the README)
+- Optimization: Hyperparameter search
+- Validation: Hold-out set
+
+(No explicit temporal validation — see limitations)
+
+The focus was on maximizing risk ranking capability, not just accuracy.
 
 ---
 
-## Business Value
+## Results and Performance
+The final model based on **XGBoost** achieved solid metrics, demonstrating a high capacity to discriminate between customers prone to churn and those not prone to it.
 
-In the streaming industry, acquiring a new customer is **5x more expensive** than retaining an existing one. **Churn Radar** identifies high-risk users with **AI-driven precision**, enabling proactive retention strategies.
+| Metric | Value |
+| :--- | :--- |
+| **ROC AUC** | 0.854 |
+| **PR AUC** | 0.877 |
+| **Recall** | 0.71 |
+| **Lift (Top 10%)** | 2.23 |
 
-### Key Features
+*Interpretation*: By selecting the 10% of customers with the highest risk score, the model captures ~2.2x more churn than a random selection — a directly actionable metric for retention.
 
-* Predictive engine using XGBoost optimized with Optuna
-* Explainable AI via SHAP
-* Retention strategy simulator (What-if analysis)
-* Production-ready Dockerized environment
-* Automated validation and testing
+## Visual Assessment
 
----
+### Confusion Matrix and ROC Curve
+![Confusion Matrix](reports\figures\xgb_v1_confusion_matrix.png)
 
-## System Architecture
+### ROC Curve
+![ROC Curve](reports\figures\xgb_v1_roc_curve.png)
 
-The project follows a modular, production-oriented structure.
+### MLflow – Experiment Tracking
+![MLflow Dashboard](reports\figures\mlflow_dashboard.png)
 
-```
-churn-radar/
-│
-├── src/
-│   ├── config/     # YAML-based centralized configuration
-│   ├── data/       # Data ingestion and persistence layer
-│   ├── features/   # Validation and feature engineering
-│   ├── models/     # Training, tuning, and inference
-│   └── app/        # Streamlit dashboard and services
-│
-├── scripts/         # Training and maintenance scripts
-├── tests/           # Automated tests
-├── docker-compose.yml
-└── requirements.txt
-```
+## Features Importance
+![Feature Importance](reports\figures\feature_importance.png)
 
----
+Understanding the factors that influence churn is as important as predicting it.
 
-## Configuration
+Below are the most relevant variables according to the feature importance (gain) of XGBoost:
 
-All runtime configuration is centralized in:
+> Technical Note: SHAP-based methods were not included in this scope due to simplicity and computational cost. In a production environment, they would be recommended for individual explainability and support for decision-making.
 
-```
-src/config/config.yaml
-```
+## Architecture and MLOps
 
-This file controls:
+- Containerization: Docker + Docker Compose
+- Experiment Tracking: MLflow
+- Model Registry: MLflow (local)
+- Persistence:
 
-* Data paths
-* Model parameters
-* MLflow tracking URI
-* Feature flags
-* Environment settings
+- SQLite for metadata
 
-No absolute paths or secrets should be hardcoded in the source code.
+- Docker volumes for artifacts (models, metrics, figures)
 
-Example:
+## Technical Decisions
 
-```yaml
-data:
-  raw_path: data/raw/
-  processed_path: data/processed/
+- SQLite was chosen for simplicity and local isolation
 
-model:
-  name: xgboost
-  max_depth: 6
-  learning_rate: 0.05
+- MLflow allows complete traceability of experiments and reproducibility
 
-mlflow:
-  tracking_uri: http://mlflow:5000
-```
+- Pipeline decoupled from the environment (execution via container)
 
 ---
 
-## Quick Start
+## Project Execution
 
-### 1. Prerequisites
+- Prerequisites
 
-* Docker
-* Docker Compose
-* Python 3.10+ (local development only)
+- Docker
 
-Verify:
+- Docker Compose
 
-```bash
-docker --version
-docker-compose --version
-python --version
-```
+The project is 100% containerized. Make sure you have Docker installed.
 
----
+1. **Clone the repository:**
 
-### 2. Clone Repository
+``bash
+git clone https://github.com/RicsonRamos/streaming_service_analysis_churn.git
 
-```bash
-git clone https://github.com/RicsonRamos/streaming_service_analysis_churn
-cd streaming_service_analysis_churn
-```
+cd streaming-churn-analysis
 
----
+2. Start the environment (App + MLflow):
 
-### 3. Environment Setup
-
-Create environment file:
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` if necessary:
-
-```env
-MLFLOW_TRACKING_URI=http://mlflow:5000
-APP_ENV=production
-```
-
----
-
-### 4. Run with Docker (Recommended)
-
-Build and start all services:
-
-```bash
-docker-compose up --build
-```
-
-Services started:
-
-* Streamlit App: [http://localhost:8501](http://localhost:8501)
-* MLflow Tracking: [http://localhost:5000](http://localhost:5000)
-
-To run in background:
-
-```bash
+``bash
 docker-compose up -d --build
-```
 
----
+3. Run the training pipeline:
 
-## Model Training
+``bash
+docker exec -it churn_radar_prod python src/pipelines/train.py
 
-To retrain the model inside the container:
+4. Access the MLflow interface:
 
-```bash
-docker exec -it churn_radar_prod python scripts/train_model.py
-```
+``bash
+http://localhost:5000
 
-This process will:
+5. Access the Streamlit interface:
 
-* Load latest processed data
-* Run Optuna optimization
-* Train final model
-* Log artifacts to MLflow
-* Persist model in `models/` directory
+``bash
+http://localhost:8501
 
----
+### Project Structure
 
-## Quality Assurance
+├── configs/ # Centralized configurations (YAML)
+├── data/ # Raw, intermediate, and processed data
+├── models/ # Model binaries and pipelines (.joblib)
+├── notebooks/ # Exploratory Data Analysis (EDA) and prototyping
+├── reports\ # Graphs and metrics reports
+├── src/ # Modularized code (Data, Features, Pipelines)
+└── docker/ # Dockerfiles and infrastructure
 
-Run tests locally or inside container:
+### Next Steps 
 
-```bash
-pytest tests/ -v
-```
+- Validation performed via random hold-out (absence of temporal validation) 
+- Dataset treated as static; no data drift evaluation 
+- No post-deploy performance monitoring 
+- Data versioning (e.g., DVC) not included. 
+  
+### Natural Evolutions:
 
-Validation guarantees:
-
-* No invalid mathematical operations
-* Strict schema enforcement (Pydantic)
-* Input boundary checks
-* Feature consistency
-
----
-
-## 💻 Local Development (Without Docker)
-
-### 1. Create Virtual Environment
-
-```bash
-python -m venv .venv
-source .venv/bin/activate   # Linux/Mac
-.venv\\Scripts\\activate    # Windows
-```
-
-### 2. Install Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 3. Run Application
-
-```bash
-streamlit run src/app/main.py
-```
-
-### 4. Train Model Locally
-
-```bash
-python scripts/train_model.py
-```
-
-Note: MLflow must be running separately in this mode.
-
----
-
-## Tech Stack
-
-Core
-
-* Python 3.10
-* Pandas
-* NumPy
-* Scikit-learn
-
-Machine Learning
-
-* XGBoost
-* Optuna
-* SHAP
-
-Tracking & Visualization
-
-* MLflow
-* Streamlit
-* Plotly
-
-Infrastructure & Quality
-
-* Docker / Docker Compose
-* Pytest
-* Pydantic
-* Black
-* Isort
-
----
-
-## Security & Secrets
-
-* Do not commit `.env` files
-* Use environment variables for credentials
-* Use Docker secrets or Vault in production
-
----
-
-## Roadmap
-
-*
-
----
-
-## License
-
-MIT License. See `LICENSE` for details.
-
----
-
-Developed with focus on engineering rigor, stability, and ROI.
+- Temporal validation
+- Monitoring of metrics in production
+- Explainability with SHAP
+- Explicit data versioning. 
+  
+Developed by *Ricson Ramos* [LinkedIn](https://www.linkedin.com/in/ricsonramos/)

@@ -1,0 +1,67 @@
+name: CI/CD - Churn Model Ultra-Profissional
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  train-validate-promote-deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      ENV: production
+      PYTHONPATH: /app
+      CONFIG_PATH: /app/configs
+      MLFLOW_TRACKING_URI: http://localhost:5000
+      MODEL_PROMOTION_DIR: ./mlruns_promoted
+      DEPLOY_TARGET: s3://my-bucket/models/churn/   # opcional, configure seu bucket
+
+    steps:
+      # Checkout código
+      - uses: actions/checkout@v3
+
+      # Configura Docker Buildx
+      - uses: docker/setup-buildx-action@v2
+
+      # Configura AWS CLI (para deploy opcional)
+      - uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID || '' }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY || '' }}
+          aws-region: us-east-1
+
+      # Build todos os containers via Compose
+      - name: Build Docker Compose
+        run: docker-compose -f docker-compose.yml build
+
+      # Levanta MLflow em background
+      - name: Start MLflow
+        run: docker-compose -f docker-compose.yml up -d mlflow
+
+      # Espera MLflow ficar saudável
+      - name: Wait for MLflow
+        run: |
+          for i in {1..20}; do
+            curl -f http://localhost:5000 && break || echo "Waiting for MLflow..." && sleep 5
+          done
+
+      # Rodar treino isolado via trainer
+      - name: Run trainer pipeline
+        run: docker-compose -f docker-compose.yml run --rm trainer
+
+      # Promove o modelo + deploy S3 (via promote_model.py)
+      - name: Promote model and deploy
+        run: docker-compose -f docker-compose.yml run --rm trainer python scripts/promote_model.py
+
+      # Upload de artefatos promovidos como artifact do GitHub
+      - name: Upload promoted artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: churn-mlflow-artifacts
+          path: ./mlruns_promoted/
+
+      # 1Cleanup (opcional)
+      - name: Stop all services
+        run: docker-compose -f docker-compose.yml down

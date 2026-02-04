@@ -1,12 +1,25 @@
 """
 Main Dashboard Orchestrator for Churn Radar.
 Point of entry: streamlit run main_dash.py
+
+This module coordinates configuration loading, service initialization, 
+and UI rendering using a modular component-based architecture.
 """
+import sys
+import os
+from pathlib import Path
+
+
+root_path = str(Path(__file__).parent.parent)
+if root_path not in sys.path:
+    sys.path.append(root_path)
+
 
 import streamlit as st
+import pandas as pd
 from src.config.loader import ConfigLoader
-from src.app.services import ChurnService
-import src.app.components as ui
+from app.services import ChurnService
+import app.components as ui
 
 # 1. GLOBAL PAGE SETUP
 st.set_page_config(
@@ -19,64 +32,102 @@ st.set_page_config(
 def initialize_app():
     """
     Initializes core application configurations and model assets.
-    Uses cached resource to avoid reloading the model on every interaction.
+    Uses cached resource to avoid reloading the model and data on every rerun.
+    
+    Returns:
+        tuple: (config_dict, churn_service_instance, model_object, history_df)
     """
-    cfg_loader = ConfigLoader()
-    cfg = cfg_loader.load_all()
+    try:
+        cfg_loader = ConfigLoader()
+        cfg = cfg_loader.load_all()
 
-    # Sincronizado com a nova estrutura do paths.yaml
-    service = ChurnService(
-        model_path=cfg["artifacts"]["current_model"],
-        processed_path=cfg["data"]["final_dataset"]
-    )
+        # Agora passamos o 'cfg' como o terceiro argumento exigido pelo __init__
+        service = ChurnService(
+            model_path=cfg["artifacts"]["current_model"],
+            processed_path=cfg["data"]["final_dataset"],
+            cfg=cfg  # <--- ADICIONE ESTA LINHA
+        )
 
-    model, df_history = service.load_assets()
-    return cfg, service, model, df_history
+        model, df_history = service.load_assets()
+        
+        if model is None or df_history is None:
+            st.error("Model or Data Assets could not be loaded. Check your paths.")
+            st.stop()
+
+        return cfg, service, model, df_history
+        
+    except Exception as e:
+        st.error(f"Initialization Failed: {e}")
+        st.stop()
 
 # 2. ASSET LOADING
 cfg, service, model, df_history = initialize_app()
 
 if model is None or df_history is None:
-    st.error("Critical Error: Missing model artifact or processed data. Run training pipeline first.")
+    st.error("Critical Error: Model artifact or processed data not found. Check your 'configs/' paths.")
     st.stop()
 
-# 3. SIDEBAR & SIMULATOR
+# 3. SIDEBAR: SETTINGS & SIMULATOR
 with st.sidebar:
     st.header("⚙️ Dashboard Settings")
+    
+    # Business logic threshold for risk classification
+    default_threshold = cfg.get("business_logic", {}).get("risk_threshold", 0.5)
     threshold = st.slider(
         "Risk Threshold", 
         0.0, 1.0, 
-        cfg["business_logic"]["risk_threshold"], # Default from base.yaml
+        default_threshold,
         help="Adjust the probability cutoff for High Risk classification."
     )
+    
     st.divider()
+    
+    # Strategy Simulator (Local Explanation Integrated)
     ui.render_simulator(model, service)
 
-# 4. DATA PROCESSING
-# Bulk inference for historical data
+# 4. MAIN INTERFACE LAYOUT
+st.title("🛡️ Churn Radar - Predictive Analytics")
+st.caption(f"Model version: {cfg['artifacts']['current_model'].split('/')[-1]}")
+
+# Execute bulk inference on historical data for dashboarding
 df_processed = service.predict_churn(model, df_history, threshold)
 
-# 5. UI LAYOUT
-st.title("🛡️ Churn Radar - Predictive Analytics")
+# --- UI SECTIONS ---
 
-# Section 1: Business Overview
+# Section 1: Business Overview (KPIs)
 ui.render_metrics(df_processed)
 st.divider()
 
-# Section 2: Visual Insights
+# Section 2: Visual Insights (Trends & Distributions)
 ui.render_charts(df_processed)
 st.divider()
 
-# Section 3: Explainability (SHAP)
-# We pass a sample of the processed features used by the model
-feature_cols = service.expected_features # Obtained from model artifact
-ui.render_explainability(model, df_processed[feature_cols].head(20))
+# --- Section 3: Explainability (Global SHAP) ---
+st.subheader("Model Interpretability (Global SHAP)")
 
-# Section 4: Operational Data
+with st.expander("View Global Feature Importance", expanded=False):
+    with st.spinner("Calculating SHAP values..."):
+        # USANDO A MANEIRA INTELIGENTE: 
+        # O serviço cuida de alinhar, processar e calcular.
+        # Limitamos a 100 amostras para não travar o Dashboard.
+        shap_values, X_processed, expected_value = service.get_shap_explanation(model, df_history.head(100))
+        
+        # Agora passamos os dados JÁ PROCESSADOS para o componente de UI
+        # Isso garante que os nomes das colunas apareçam no gráfico.
+        ui.render_explainability(shap_values, X_processed)
+
+# --- Section 4: Operational Data (Actionable List) ---
 st.subheader("📋 Priority Retention List")
-high_risk_list = df_processed[df_processed['Risk_Level'] == 'High'].sort_values('Probability', ascending=False)
 
-if not high_risk_list.empty:
-    st.dataframe(high_risk_list, use_container_width=True)
-else:
-    st.info("No high-risk customers identified with current settings.")
+# Filtragem direta no DataFrame que já foi processado pelo serviço
+high_risk_list = df_processed[df_processed['Risk_Level'] == 'High'].sort_values(
+    by='Probability', 
+    ascending=False
+)
+
+# Renderiza a tabela usando seu componente de UI
+ui.render_priority_list(high_risk_list)
+
+# 5. FOOTER
+st.markdown("---")
+st.caption("Churn Radar v2.0 | Data-Driven Retention Strategy")

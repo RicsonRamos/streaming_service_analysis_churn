@@ -15,13 +15,16 @@ class ConfigLoader:
     Handles dynamic loading of YAML configuration files.
     """
 
-    def __init__(self, config_dir: str = "configs/config"):
+    def __init__(self, config_dir: str = None):
         """
         Initializes the loader with the path to the configuration directory.
 
         Args:
             config_dir (str): Relative path to the yaml files.
         """
+        if config_dir is None:
+            config_dir = os.getenv("CONFIG_PATH", "configs")
+
         # Resolves the absolute path based on the project root
         self.base_path = Path(__file__).parent.parent.parent / config_dir
 

@@ -1,27 +1,77 @@
-version: '3.8'
+networks:
+  churn_network:
+    driver: bridge
+
+volumes:
+  mlflow_data:
+  mlflow_artifacts:
 
 services:
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    container_name: mlflow
+    restart: unless-stopped
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri sqlite:////mlflow_data/mlflow.db
+      --default-artifact-root /mlflow_artifacts
+      --allowed-hosts "*"
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_data:/mlflow_data
+      - mlflow_artifacts:/mlflow_artifacts
+    networks:
+      - churn_network
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:5000\")'"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 10s
+
   churn-app:
     build:
       context: .
       dockerfile: docker/Dockerfile
     container_name: churn_radar_prod
+    restart: unless-stopped
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    environment:
+      ENV: production
+      PYTHONPATH: /app
+      CONFIG_PATH: /app/configs
+      MLFLOW_TRACKING_URI: http://mlflow:5000
     ports:
       - "8501:8501"
     volumes:
-      # Mount artifacts and data to persist training results and processed files
-      - ./models/artifacts:/app/models/artifacts
-      - ./data/processed:/app/data/processed
-      - ./reports:/app/reports
-    environment:
-      - ENV=production
-      - MLFLOW_TRACKING_URI=http://mlflow-server:5000 # Caso queira integrar MLflow
-    restart: unless-stopped
+      - .:/app
+      - mlflow_artifacts:/mlflow_artifacts  # ADICIONADO: Agora o app enxerga os artefatos
+      - mlflow_data:/mlflow_data            # ADICIONADO: Consistência de dados
+    networks:
+      - churn_network
 
-  # Opcional: Container para o MLflow Tracking UI
-  mlflow-server:
-    image: ghcr.io/mlflow/mlflow:latest
-    container_name: churn_mlflow
-    ports:
-      - "5000:5000"
-    command: mlflow ui --host 0.0.0.0
+  trainer:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: churn_trainer
+    restart: "no"
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    environment:
+      ENV: production
+      PYTHONPATH: /app
+      CONFIG_PATH: /app/configs
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    networks:
+      - churn_network
+    volumes:
+      - .:/app
+      - mlflow_artifacts:/mlflow_artifacts
+      - mlflow_data:/mlflow_data

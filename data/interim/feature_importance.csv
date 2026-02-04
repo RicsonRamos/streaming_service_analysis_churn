@@ -1,0 +1,20 @@
+feature,importance
+Is_High_Spender,0.33477098
+Monthly_Spend,0.17087726
+Support_Tickets_Raised,0.117992654
+LTV_Spend_Ratio,0.099537276
+Subscription_Length,0.08137238
+Estimated_LTV,0.04192611
+Engagement_Score,0.034373358
+Gender_Male,0.015172715
+Region_North,0.014986561
+Gender_Female,0.014247546
+Payment_Method_Debit Card,0.013644396
+Region_South,0.013433648
+Age,0.012590142
+Region_East,0.011499251
+Region_West,0.009704594
+Payment_Method_PayPal,0.0084088165
+Payment_Method_Credit Card,0.0054623503
+Is_Free_Trial,0.0
+is_senior,0.0
