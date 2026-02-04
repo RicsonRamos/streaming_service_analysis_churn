@@ -134,7 +134,7 @@ http://localhost:5000
 http://localhost:8501
 ```
 ### Project Structure
-
+---
 streaming-churn-analysis/
 ├── configs/ # Centralized configurations (YAML)
 ├── data/ # Raw, intermediate, and processed data
@@ -143,6 +143,7 @@ streaming-churn-analysis/
 ├── reports/ # Graphs and metrics reports
 ├── src/ # Modularized code (Data, Features, Pipelines)
 └── docker/ # Dockerfiles and infrastructure
+---
 
 ### Next Steps 
 
