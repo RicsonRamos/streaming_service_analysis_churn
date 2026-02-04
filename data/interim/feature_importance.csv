@@ -1,20 +1,20 @@
 feature,importance
-Is_High_Spender,0.35309863
-Monthly_Spend,0.1445178
-Support_Tickets_Raised,0.10565518
-LTV_Spend_Ratio,0.09161925
-Subscription_Length,0.056642763
-Estimated_LTV,0.038746234
-Engagement_Score,0.026799478
-Region_North,0.022554293
-Gender_Female,0.020598916
-Gender_Male,0.019122321
-Region_South,0.017979683
-Payment_Method_Debit Card,0.017847914
-Payment_Method_PayPal,0.016852064
-Payment_Method_Credit Card,0.015618842
-Age,0.015324845
-Region_East,0.012936742
-Region_West,0.012079361
-is_senior,0.012005628
+Is_High_Spender,0.33477098
+Monthly_Spend,0.17087726
+Support_Tickets_Raised,0.117992654
+LTV_Spend_Ratio,0.099537276
+Subscription_Length,0.08137238
+Estimated_LTV,0.04192611
+Engagement_Score,0.034373358
+Gender_Male,0.015172715
+Region_North,0.014986561
+Gender_Female,0.014247546
+Payment_Method_Debit Card,0.013644396
+Region_South,0.013433648
+Age,0.012590142
+Region_East,0.011499251
+Region_West,0.009704594
+Payment_Method_PayPal,0.0084088165
+Payment_Method_Credit Card,0.0054623503
 Is_Free_Trial,0.0
+is_senior,0.0

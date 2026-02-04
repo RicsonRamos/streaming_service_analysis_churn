@@ -7,7 +7,6 @@ volumes:
   mlflow_artifacts:
 
 services:
-
   mlflow:
     image: ghcr.io/mlflow/mlflow:latest
     container_name: mlflow
@@ -33,7 +32,6 @@ services:
       retries: 15
       start_period: 10s
 
-
   churn-app:
     build:
       context: .
@@ -50,6 +48,10 @@ services:
       MLFLOW_TRACKING_URI: http://mlflow:5000
     ports:
       - "8501:8501"
+    volumes:
+      - .:/app
+      - mlflow_artifacts:/mlflow_artifacts  # ADICIONADO: Agora o app enxerga os artefatos
+      - mlflow_data:/mlflow_data            # ADICIONADO: Consistência de dados
     networks:
       - churn_network
 
@@ -70,7 +72,6 @@ services:
     networks:
       - churn_network
     volumes:
+      - .:/app
       - mlflow_artifacts:/mlflow_artifacts
       - mlflow_data:/mlflow_data
-    entrypoint: ["/app/docker/wait-for-mlflow.sh", "python", "src/pipelines/train.py"]
-
