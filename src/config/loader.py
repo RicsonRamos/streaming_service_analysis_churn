@@ -1,76 +1,19 @@
-"""
-Configuration Loader Module.
-
-Centralizes the loading of YAML configuration files from the project's 
-config directory, merging them into a single accessible dictionary.
-"""
-
 import yaml
 import os
 from pathlib import Path
 from typing import Dict, Any
 
 class ConfigLoader:
-    """
-    Handles dynamic loading of YAML configuration files.
-    """
+    """Carregador central de configuração única."""
+    def __init__(self, config_file: str = "configs/config.yaml"):
+        # Busca a raiz do projeto (3 níveis acima de src/config/loader.py)
+        self.config_path = Path(__file__).parent.parent.parent / config_file
 
-    def __init__(self, config_dir: str = None):
-        """
-        Initializes the loader with the path to the configuration directory.
-
-        Args:
-            config_dir (str): Relative path to the yaml files.
-        """
-        if config_dir is None:
-            config_dir = os.getenv("CONFIG_PATH", "configs")
-
-        # Resolves the absolute path based on the project root
-        self.base_path = Path(__file__).parent.parent.parent / config_dir
-
-    def _load_yaml(self, path: Path) -> Dict[str, Any]:
-        """
-        Reads a YAML file and returns its content as a dictionary.
-
-        Args:
-            path (Path): Path to the target YAML file.
-
-        Returns:
-            Dict: Content of the file or empty dict if fails.
-        """
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                content = yaml.safe_load(f)
-                return content if content is not None else {}
-        except Exception as e:
-            print(f"[ERROR] Failed to load config file {path}: {e}")
-            return {}
-
-    def load_all(self) -> Dict[str, Any]:
-        """
-        Dynamically loads all .yaml files from the config directory.
+    def load(self) -> Dict[str, Any]:
+        """Carrega o YAML consolidado."""
+        if not self.config_path.exists():
+            raise FileNotFoundError(f"Configuração não encontrada em: {self.config_path}")
         
-        It merges all files into a single dictionary to facilitate access 
-        (e.g., cfg['artifacts'] instead of cfg['paths']['artifacts']).
-
-        Returns:
-            Dict: A merged dictionary containing all configuration keys.
-
-        Raises:
-            FileNotFoundError: If the config directory does not exist.
-        """
-        if not self.base_path.exists():
-            raise FileNotFoundError(
-                f"Configuration directory not found at: {self.base_path.absolute()}"
-            )
-
-        full_config = {}
-        # Iterates through all .yaml files in the directory
-        for config_file in self.base_path.glob("*.yaml"):
-            file_content = self._load_yaml(config_file)
-            
-            # Merges the content directly into the main dictionary
-            # This prevents deep nested keys like cfg['model']['model']['type']
-            full_config.update(file_content)
-
-        return full_config
+        with open(self.config_path, "r", encoding="utf-8") as f:
+            config = yaml.safe_load(f)
+            return config if config else {}

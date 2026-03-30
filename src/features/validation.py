@@ -47,7 +47,7 @@ class CustomerSchema(BaseModel):
     @classmethod
     def validate_region(cls, v: str) -> str:
         """Validates that region matches the training set categories."""
-        allowed = ['North', 'South', 'East', 'West', 'Central', 'Germany', 'France', 'Spain']
+        allowed = ['North', 'South', 'East', 'West']
         if v not in allowed:
             raise ValueError(f"Region '{v}' is not supported.")
         return v

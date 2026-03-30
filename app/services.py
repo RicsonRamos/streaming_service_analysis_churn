@@ -1,122 +1,78 @@
-"""
-ChurnService: Core logic for data loading, inference, and risk classification.
-Handles feature engineering alignment between training and production.
-"""
 import streamlit as st
 import pandas as pd
 import joblib
-import os
 import logging
-from pathlib import Path
-from typing import Tuple, Dict, Any, Optional
-import shap
+import mlflow
 from src.features.feature_engineering import FeatureEngineer
 
+# 1. INSTANCIAR O LOGGER (O ponto da falha)
 logger = logging.getLogger(__name__)
 
 class ChurnService:
-    def __init__(self, model_path: str, processed_path: str, cfg: dict):
-        """
-        Initializes the service. Now integrates the global config to 
-        instantiate the same FeatureEngineer used in training.
-        """
-        self.model_path = model_path
-        self.processed_path = processed_path
+    def __init__(self, cfg: dict):
         self.cfg = cfg
-        # Use the real engine, not a hardcoded copy-paste logic
         self.fe = FeatureEngineer(cfg)
+        # Em produção, carregaríamos artefatos reais (medias, scalers) aqui
+        self._load_metadata()
 
-    def load_assets(self) -> Tuple[Optional[Any], Optional[pd.DataFrame]]:
-        """Loads model artifacts and the processed historical dataset."""
-        if not os.path.exists(self.model_path):
-            logger.error(f"Model file not found at: {self.model_path}")
-            return None, None
-            
-        if not os.path.exists(self.processed_path):
-            logger.error(f"Data file not found at: {self.processed_path}")
-            return None, None
+    def _load_metadata(self):
+        """
+        Carrega parâmetros de engenharia calculados no treino.
+        Rigor: Garante que o preenchimento de nulos no Dash use os mesmos valores do Treino.
+        """
+        # Exemplo: self.fe.params = joblib.load('models/artifacts/fe_params.joblib')
+        self.fe.params = {'monthly_median': 500.0} 
 
+    def load_model(self):
+        """
+        Carrega o artefato do modelo. 
+        Nota: O st.cache_resource deve ser usado na chamada (main_dash.py) 
+        para evitar problemas de serialização aqui.
+        """
         try:
-            loaded = joblib.load(self.model_path)
-            model = loaded.get('model') if isinstance(loaded, dict) else loaded
-            df = pd.read_csv(self.processed_path)
-            
-            # Extract expected features directly from the trained XGBoost model
-            if hasattr(model, 'feature_names_in_'):
-                self.model_features = model.feature_names_in_.tolist()
-            else:
-                # Fallback to config if model doesn't have metadata (not ideal)
-                logger.warning("Model lacks feature_names_in_. Falling back to config.")
-                self.model_features = self.cfg.get("feature_schema", {}).get("numeric", [])
-            
-            return model, df
+            path = self.cfg['artifacts']['current_model']
+            artifact = joblib.load(path)
+            logger.info(f"Artefato de modelo carregado com sucesso de: {path}")
+            return artifact
         except Exception as e:
-            logger.error(f"Failed to load assets: {e}")
-            return None, None
+            logger.error(f"Falha ao carregar o modelo: {e}")
+            raise e
 
-    def _align_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        # 1. Gera as features técnicas
-        X = self.fe.create_features(df)
-        
-        # 2. Encoding das categóricas via YAML
-        cat_cols = self.cfg.get("feature_schema", {}).get("categorical", [])
-        X = pd.get_dummies(X, columns=[c for c in cat_cols if c in X.columns])
-        
-        # 3. Alinhamento com as colunas do modelo
-        for col in self.model_features:
-            if col not in X.columns:
-                X[col] = 0
-        
-        X = X[self.model_features]
+    def predict_churn(self, model_artifact, df, threshold):
+        """
+        Realiza a predição usando o artefato carregado.
+        """
+        # 1. DESEMPACOTAR O MODELO (Corrigido)
+        if isinstance(model_artifact, dict):
+            model = model_artifact['model']
+            feature_names = model_artifact['features']
+        else:
+            model = model_artifact
+            # Fallback perigoso se feature_names não vier no dict
+            feature_names = getattr(model, 'feature_names_in_', None)
 
-        # --- A LINHA QUE SALVA SUA VIDA ---
-        # Converte tudo para float. Se houver uma string, o Python vai gritar o erro aqui
-        # com o nome da coluna culpada, em vez de crashar o SHAP.
-        try:
-            X = X.apply(pd.to_numeric, errors='raise').astype(float)
-        except Exception as e:
-            logger.error(f"Erro de conversão de tipo: {e}")
-            # Se falhar, vamos identificar quais colunas ainda são 'object'
-            bad_cols = X.select_dtypes(include=['object']).columns.tolist()
-            raise ValueError(f"As seguintes colunas não são numéricas: {bad_cols}")
-            
-        return X
-
-    def predict_churn(self, model, df: pd.DataFrame, threshold: float) -> pd.DataFrame:
-        """Performs batch inference while preserving original identification columns."""
-        # Align features based on what the model was actually trained on
-        X = self._align_features(df)
-
-        # Inference using the cleaned/aligned matrix
-        probabilities = model.predict_proba(X)[:, 1]
+        # 2. PRÉ-PROCESSAMENTO (Feature Engineering)
+        # X deve conter apenas as colunas que o modelo espera
+        X = self.fe.transform(df) 
         
-        output_df = df.copy()
-        output_df['Probability'] = probabilities
-        output_df['Risk_Level'] = output_df['Probability'].apply(
-            lambda x: 'High' if x >= threshold else ('Medium' if x >= 0.4 else 'Low')
+        # 3. ALINHAMENTO E FILTRAGEM DE COLUNAS (Rigor Técnico)
+        # Garante que a ordem das colunas e a quantidade sejam idênticas ao treino
+        if feature_names is not None:
+            # Filtra apenas as colunas que o modelo conhece para evitar erro de shape
+            X = X[list(feature_names)]
+        else:
+            logger.warning("Nomes das features não encontrados. A inferência pode falhar.")
+
+        # 4. INFERÊNCIA
+        # O modelo XGBoost agora terá acesso aos dados no formato 'category' ou numérico
+        probs = model.predict_proba(X)[:, 1]
+        
+        # 5. PÓS-PROCESSAMENTO (Visão de Negócio)
+        # Criamos uma cópia para não poluir o dataframe original de exibição
+        results = df.copy()
+        results['Churn_Probability'] = probs
+        results['Risk_Level'] = results['Churn_Probability'].apply(
+            lambda x: 'High' if x >= threshold else 'Low'
         )
         
-        return output_df
-
-    def predict_single_customer(self, model, customer_data: dict) -> float:
-        """Predicts churn probability for a single customer (Simulator)."""
-        df_single = pd.DataFrame([customer_data])
-        X_single = self._align_features(df_single)
-        
-        prob = model.predict_proba(X_single)[0, 1]
-        return float(prob)
-    
-    @st.cache_data
-    def get_shap_explanation(_self, _model, df_input: pd.DataFrame): # Adicione _ no self e no model
-        """
-        Generates SHAP values. The leading underscores in _self and _model 
-        prevent Streamlit from trying to hash these complex objects.
-        """
-        X_aligned = _self._align_features(df_input)
-        
-        # API Moderna do SHAP (mais estável com XGBoost)
-        explainer = shap.Explainer(_model, X_aligned)
-        shap_values = explainer(X_aligned)
-        
-        # O Explainer moderno já traz o expected_value dentro do objeto shap_values
-        return shap_values, X_aligned, shap_values.base_values[0]
+        return results

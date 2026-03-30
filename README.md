@@ -1,163 +1,111 @@
-# Streaming Service Churn Radar
+# 🛡️ Streaming Service Churn Radar (v2.0 - Production Ready)
 
-[![Python](https://img.shields.io/badge/Python-3.10-blue.svg)](https://www.python.org/)
-[![Docker](https://img.shields.io/badge/Docker-Enabled-blue.svg)](https://www.docker.com/)
-[![MLflow](https://img.shields.io/badge/MLflow-Tracking-orange.svg)](https://mlflow.org/)
-[![XGBoost](https://img.shields.io/badge/Model-XGBoost-green.svg)](https://xgboost.readthedocs.io/)
+[![Python](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/)
+[![MLflow](https://img.shields.io/badge/MLflow-Tracking%20%26%20Registry-orange.svg)](https://mlflow.org/)
+[![XGBoost](https://img.shields.io/badge/Model-XGBoost%20Native-green.svg)](https://xgboost.readthedocs.io/)
+[![Streamlit](https://img.shields.io/badge/Interface-Operational%20Dash-red.svg)](https://streamlit.io/)
 
-Complete reproducible, traceable and business-oriented Machine Learning pipeline for churn prediction in a streaming service. This project was developed as an applied technical portfolio project, with architecture and decisions aligned with real-world production scenarios, using only local infrastructure (without cloud dependencies or managed services).
+Este projeto é uma plataforma completa de **MLOps** para predição e gestão de Churn em serviços de streaming. Diferente de modelos puramente acadêmicos, esta arquitetura foi desenhada para **ação tática**, integrando o treinamento rastreável à uma interface de decisão que identifica clientes em risco em tempo real.
 
-> Scope: applied project / technical portfolio, with architecture aligned with production scenarios, but without external dependencies (cloud, managed services).
-
-## Business Objective
-
-Reduce churn by identifying customers with a higher probability of cancellation, enabling:
-
-- Proactive retention actions
-- Efficient campaign prioritization
-- Reduction of marginal cost per retained customer
-
-The problem is modeled as a binary classification, focusing on risk ranking, prioritizing metrics robust to imbalance and relevant for decision-making.
-
----
-## Data
-
-- Type: aggregated tabular data by customer
-- Features: behavioral, demographic, and usage history
-- Target: churn (0 = active, 1 = canceled)
-- Pre-processing: cleaning, encoding, and feature engineering performed via pipeline
-
-> Note: the dataset is treated as static for project purposes. There is no explicit data versioning (e.g., DVC).
-
-## Modeling
-
-- Model: XGBoost (Gradient Boosting Trees)
-- Baseline: Implicit (simple model used during EDA, not included in the README)
-- Optimization: Hyperparameter search
-- Validation: Hold-out set
-
-(No explicit temporal validation — see limitations)
-
-The focus was on maximizing risk ranking capability, not just accuracy.
+## 🎯 Objetivo Estratégico
+Transformar dados históricos em **inteligência preventiva**. O sistema identifica padrões comportamentais que precedem o cancelamento, permitindo que a equipe de retenção atue nos clientes de maior valor antes da perda definitiva.
 
 ---
 
-## Results and Performance
-The final model based on **XGBoost** achieved solid metrics, demonstrating a high capacity to discriminate between customers prone to churn and those not prone to it.
+## 🏗️ Arquitetura do Sistema
+O projeto utiliza uma estrutura modular e desacoplada, garantindo que modificações na engenharia de atributos não quebrem a interface de usuário.
 
-| Metric | Value |
-| :--- | :--- |
-| **ROC AUC** | 0.854 |
-| **PR AUC** | 0.877 |
-| **Recall** | 0.71 |
-| **Lift (Top 10%)** | 2.23 |
-
-*Interpretation*: By selecting the 10% of customers with the highest risk score, the model captures ~2.2x more churn than a random selection — a directly actionable metric for retention.
-
-## Visual Assessment
-
-### Confusion Matrix and ROC Curve
-![Confusion Matrix](reports/figures/xgb_v1_confusion_matrix.png)
-
-### ROC Curve
-![ROC Curve](reports/figures/xgb_v1_roc_curve.png)
-
-### MLflow – Experiment Tracking
-![MLflow Dashboard](reports/figures/mlflow_dashboard.png)
-
-## Features Importance
-![Feature Importance](reports/figures/feature_importance.png)
-
-Understanding the factors that influence churn is as important as predicting it.
-
-Below are the most relevant variables according to the feature importance (gain) of XGBoost:
-
-> Technical Note: SHAP-based methods were not included in this scope due to simplicity and computational cost. In a production environment, they would be recommended for individual explainability and support for decision-making.
-
-## Architecture and MLOps
-
-- Containerization: Docker + Docker Compose
-- Experiment Tracking: MLflow
-- Model Registry: MLflow (local)
-- Persistence:
-
-- SQLite for metadata
-
-- Docker volumes for artifacts (models, metrics, figures)
-
-## Technical Decisions
-
-- SQLite was chosen for simplicity and local isolation
-
-- MLflow allows complete traceability of experiments and reproducibility
-
-- Pipeline decoupled from the environment (execution via container)
+* **Data Pipeline:** Carregamento sanitizado com remoção automática de *Target Leakage* (IDs e métricas de satisfação pós-evento).
+* **ML Engine:** XGBoost com suporte nativo a variáveis categóricas.
+* **Governança (MLflow):** Experimentos registrados em banco SQLite local, com versionamento de modelos no *Model Registry*.
+* **Operational Dash:** Interface Streamlit que consome o modelo em estágio de `Production` para gerar listas de alvos.
 
 ---
 
-## Project Execution
+## 📊 Performance e Rigor Estatístico
+Após a limpeza de variáveis viciadas (`Customer_ID`, `Satisfaction_Score`, `Last_Activity`), o modelo atingiu métricas realistas e robustas:
 
-- Prerequisites
+| Métrica | Valor Final | Status |
+| :--- | :--- | :--- |
+| **ROC AUC** | **0.8595** | ✅ Robusto |
+| **Accuracy** | **0.838** | ✅ Confiável |
+| **F1-Score** | **0.804** | ✅ Equilibrado |
 
-- Docker
+> **Nota do Analista:** Modelos com AUC 1.00 foram descartados durante o desenvolvimento por apresentarem vazamento de dados (*data leakage*). A versão atual (v12) reflete o comportamento real e generalizável dos clientes.
 
-- Docker Compose
+---
 
-The project is 100% containerized. Make sure you have Docker installed.
+## 🛠️ Tecnologias Utilizadas
+* **Core:** Python 3.12, Pandas, Scikit-Learn.
+* **Modelo:** XGBoost (Extreme Gradient Boosting).
+* **MLOps:** MLflow (Tracking & Model Registry).
+* **Interface:** Streamlit (Dashboard Preditivo).
+* **Banco de Metadados:** SQLite.
 
-1. **Clone the repository:**
+---
 
+## 🚀 Execução do Pipeline
+
+### 1. Preparação do Ambiente
 ```bash
-git clone https://github.com/RicsonRamos/streaming_service_analysis_churn.git
-cd streaming-churn-analys
+# Criar e ativar ambiente virtual
+python -m venv .venv
+source .venv/bin/activate  # No Windows: .venv\Scripts\activate
+
+# Instalar dependências
+pip install -r requirements.txt
 ```
 
-2. Start the environment (App + MLflow):
-
+### 2. Ciclo de Vida do Modelo (Treino e Promoção)
+O comando abaixo executa o pipeline completo: carrega dados, treina, valida métricas e, se aprovado, promove o modelo para o estágio de `Production` no MLflow.
 ```bash
-docker-compose up -d --build
+python main.py --mode full
 ```
 
-3. Run the training pipeline:
-
+### 3. Monitoramento e Dashboard
+Para visualizar as métricas de todos os experimentos e as versões do modelo:
 ```bash
-docker exec -it churn_radar_prod python src/pipelines/train.py
+mlflow ui --backend-store-uri sqlite:///mlflow.db
 ```
-4. Access the MLflow interface:
 
+Para abrir o Painel de Controle e gerar a **Lista de Alvos**:
 ```bash
-http://localhost:5000
+streamlit run app/main_dash.py
 ```
-5. Access the Streamlit interface:
 
-```bash
-http://localhost:8501
-```
-### Project Structure
+---
 
+## 🖥️ Interface Operacional
+O dashboard foi desenvolvido para usuários de negócio e analistas de retenção, permitindo:
+1.  **Ajuste de Threshold:** Definir a sensibilidade do risco (ex: focar apenas em quem tem > 80% de chance de sair).
+2.  **Lista de Alvos:** Tabela identificável com `Customer_ID`, `Monthly_Spend` e `Region` para ação imediata.
+3.  **Exportação:** Download da lista de clientes em risco (CSV) para integração com ferramentas de CRM.
+
+---
+
+## 📂 Estrutura do Projeto
 ```text
-streaming-churn-analysis/
-├── configs/       (Centralized configurations, YAML)
-├── data/          (Raw, intermediate, and processed data)
-├── models/        (Model binaries and pipelines, .joblib)
-├── notebooks/     (Exploratory Data Analysis (EDA) and prototyping)
-├── reports/       (Graphs and metrics reports)
-├── src/           (Modularized code: Data, Features, Pipelines)
-└── docker/        (Dockerfiles and infrastructure)
+├── app/               # Interface Streamlit (Dashboard)
+├── data/
+│   └── raw/           # Dados brutos (streaming.csv)
+├── models/
+│   └── artifacts/     # Binários do modelo (.joblib)
+├── src/
+│   ├── config/        # Gestão de YAML (Schemas e Hyperparams)
+│   ├── data/          # Data Loading e Sanitização
+│   ├── features/      # Engenharia de Atributos
+│   ├── models/        # Wrappers do XGBoost
+│   └── pipelines/     # Orquestração de Treino e Promoção
+├── main.py            # Entry point do sistema (CLI)
+└── mlflow.db          # Banco de dados de governança (SQLite)
 ```
 
-### Next Steps 
+---
 
-- Validation performed via random hold-out (absence of temporal validation) 
-- Dataset treated as static; no data drift evaluation 
-- No post-deploy performance monitoring 
-- Data versioning (e.g., DVC) not included. 
-  
-### Natural Evolutions:
+## 📈 Próximos Passos
+- [ ] **Dockerização:** Empacotamento em Docker Compose para isolamento total de infraestrutura.
+- [ ] **SHAP Integration:** Adicionar explicabilidade individual para entender os motivos específicos de cada churn.
+- [ ] **API Endpoint:** Criar uma rota FastAPI para consultas externas em tempo real.
 
-- Temporal validation
-- Monitoring of metrics in production
-- Explainability with SHAP
-- Explicit data versioning. 
-  
-Developed by *Ricson Ramos* [LinkedIn](https://www.linkedin.com/in/ricsonramos/)
+---
+**Desenvolvido por Ricson Ramos** *Analista de Dados & Engenheiro de Machine Learning* [LinkedIn](https://www.linkedin.com/in/ricsonramos/) | [GitHub](https://github.com/RicsonRamos)

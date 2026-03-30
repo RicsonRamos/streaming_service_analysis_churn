@@ -1,0 +1,75 @@
+# =========================================================
+# CONFIGURAÇÃO GERAL E AMBIENTE
+# =========================================================
+project:
+  name: "ChurnRadar"
+
+environment:
+  random_seed: 42
+# =========================================================
+# INFRAESTRUTURA DE DADOS (PATHS)
+# =========================================================
+data:
+  raw_source: "data/raw/streaming.csv"
+  processed_dir: "data/processed/"
+  final_dataset: "data/processed/streaming_clean.csv"
+  interim_path: "data/interim/"
+
+# =========================================================
+# GOVERNANÇA DE MODELOS E ARTEFATOS
+# =========================================================
+artifacts:
+  model_dir: "models/artifacts/"
+  current_model: "models/artifacts/churn_model_v1.joblib"
+  figures_path: "reports/figures/"
+  reports_path: "reports/"
+
+# =========================================================
+# ESQUEMA DE DADOS E NEGÓCIO (DATA CONTRACT)
+# =========================================================
+feature_schema:
+  target: Churned
+  categorical: [Gender, Region, Payment_Method]
+  numerical: [Age, Subscription_Length, Support_Tickets_Raised, Satisfaction_Score, Discount_Offered, Monthly_Spend]
+  
+  
+  drop_columns: 
+    - Customer_ID            # ID não prevê nada, apenas vicia
+    - Satisfaction_Score     # Se coletado no cancelamento, é leakage
+    - Last_Activity          # Se for 'Data de Cancelamento', é leakage direto
+  numeric:
+    - "Age"
+    - "Subscription_Length"
+    - "Support_Tickets_Raised"
+    - "Monthly_Spend"
+  categorical:
+    - "Gender"
+    - "Region"
+    - "Payment_Method"
+  excluded:
+    - "CustomerID"
+    - "Last_Activity"
+    - "Satisfaction_Score" # Removido para evitar bias/leakage
+
+business_logic:
+  risk_threshold: 0.70
+  ltv_horizon_months: 12
+  currency: "USD"
+
+# =========================================================
+# HIPERPARÂMETROS E METADADOS DE TREINO
+# =========================================================
+model_metadata:
+  algorithm: "xgboost"
+  test_size: 0.2
+  early_stopping: 20
+  eval_metric: "auc"
+
+hyperparameters:
+  n_estimators: 500
+  max_depth: 6
+  learning_rate: 0.05
+  subsample: 0.8
+  colsample_bytree: 0.8
+  random_state: 42
+  eval_metric: "logloss"

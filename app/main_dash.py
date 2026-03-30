@@ -1,133 +1,142 @@
-"""
-Main Dashboard Orchestrator for Churn Radar.
-Point of entry: streamlit run main_dash.py
-
-This module coordinates configuration loading, service initialization, 
-and UI rendering using a modular component-based architecture.
-"""
-import sys
-import os
-from pathlib import Path
-
-
-root_path = str(Path(__file__).parent.parent)
-if root_path not in sys.path:
-    sys.path.append(root_path)
-
-
 import streamlit as st
 import pandas as pd
-from src.config.loader import ConfigLoader
-from app.services import ChurnService
-import app.components as ui
+import mlflow
+import mlflow.sklearn
+import plotly.express as px
+from pathlib import Path
 
-# 1. GLOBAL PAGE SETUP
+# 1. CONFIGURAÇÃO DE AMBIENTE E PÁGINA
 st.set_page_config(
-    page_title="Churn Radar | Predictive Insights",
+    page_title="Churn Radar 2026 | Inteligência Preditiva", 
     layout="wide",
-    page_icon="🛡️"
+    initial_sidebar_state="expanded"
 )
 
+# Estilização para Alerta de Alta Prioridade
+st.markdown("""
+    <style>
+    .main { background-color: #0e1117; }
+    .stMetric { background-color: #161b22; padding: 15px; border-radius: 10px; border: 1px solid #30363d; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# 2. FUNÇÕES DE CARGA (Rigor de Governança)
 @st.cache_resource
-def initialize_app():
-    """
-    Initializes core application configurations and model assets.
-    Uses cached resource to avoid reloading the model and data on every rerun.
-    
-    Returns:
-        tuple: (config_dict, churn_service_instance, model_object, history_df)
-    """
+def load_production_model():
+    """Busca o modelo 'Production' no MLflow Registry via SQLite."""
+    mlflow.set_tracking_uri("sqlite:///mlflow.db")
+    model_name = "Churn-XGB-Prod"
     try:
-        cfg_loader = ConfigLoader()
-        cfg = cfg_loader.load_all()
-
-        # Agora passamos o 'cfg' como o terceiro argumento exigido pelo __init__
-        service = ChurnService(
-            model_path=cfg["artifacts"]["current_model"],
-            processed_path=cfg["data"]["final_dataset"],
-            cfg=cfg  # <--- ADICIONE ESTA LINHA
-        )
-
-        model, df_history = service.load_assets()
-        
-        if model is None or df_history is None:
-            st.error("Model or Data Assets could not be loaded. Check your paths.")
-            st.stop()
-
-        return cfg, service, model, df_history
-        
+        # Carrega sempre a versão marcada como 'Production'
+        model = mlflow.sklearn.load_model(f"models:/{model_name}/Production")
+        return model
     except Exception as e:
-        st.error(f"Initialization Failed: {e}")
-        st.stop()
+        st.error(f"Erro ao acessar Model Registry: {e}")
+        return None
 
-# 2. ASSET LOADING
-cfg, service, model, df_history = initialize_app()
+@st.cache_data
+def get_data():
+    """Carrega a base bruta para manter os IDs e metadados de exibição."""
+    path = "data/raw/streaming.csv"
+    if not Path(path).exists():
+        st.error(f"Arquivo não encontrado em {path}")
+        return pd.DataFrame()
+    return pd.read_csv(path)
 
-if model is None or df_history is None:
-    st.error("Critical Error: Model artifact or processed data not found. Check your 'configs/' paths.")
-    st.stop()
+# 3. LÓGICA DE INTERFACE
+st.title("🛡️ Churn Radar: Inteligência de Retenção")
+st.sidebar.header("⚙️ Configurações de Negócio")
 
-# 3. SIDEBAR: SETTINGS & SIMULATOR
-with st.sidebar:
-    st.header("⚙️ Dashboard Settings")
-    
-    # Business logic threshold for risk classification
-    default_threshold = cfg.get("business_logic", {}).get("risk_threshold", 0.5)
-    threshold = st.slider(
-        "Risk Threshold", 
-        0.0, 1.0, 
-        default_threshold,
-        help="Adjust the probability cutoff for High Risk classification."
-    )
-    
-    st.divider()
-    
-    # Strategy Simulator (Local Explanation Integrated)
-    ui.render_simulator(model, service)
-
-# 4. MAIN INTERFACE LAYOUT
-st.title("🛡️ Churn Radar - Predictive Analytics")
-st.caption(f"Model version: {cfg['artifacts']['current_model'].split('/')[-1]}")
-
-# Execute bulk inference on historical data for dashboarding
-df_processed = service.predict_churn(model, df_history, threshold)
-
-# --- UI SECTIONS ---
-
-# Section 1: Business Overview (KPIs)
-ui.render_metrics(df_processed)
-st.divider()
-
-# Section 2: Visual Insights (Trends & Distributions)
-ui.render_charts(df_processed)
-st.divider()
-
-# --- Section 3: Explainability (Global SHAP) ---
-st.subheader("Model Interpretability (Global SHAP)")
-
-with st.expander("View Global Feature Importance", expanded=False):
-    with st.spinner("Calculating SHAP values..."):
-        # USANDO A MANEIRA INTELIGENTE: 
-        # O serviço cuida de alinhar, processar e calcular.
-        # Limitamos a 100 amostras para não travar o Dashboard.
-        shap_values, X_processed, expected_value = service.get_shap_explanation(model, df_history.head(100))
-        
-        # Agora passamos os dados JÁ PROCESSADOS para o componente de UI
-        # Isso garante que os nomes das colunas apareçam no gráfico.
-        ui.render_explainability(shap_values, X_processed)
-
-# --- Section 4: Operational Data (Actionable List) ---
-st.subheader("📋 Priority Retention List")
-
-# Filtragem direta no DataFrame que já foi processado pelo serviço
-high_risk_list = df_processed[df_processed['Risk_Level'] == 'High'].sort_values(
-    by='Probability', 
-    ascending=False
+# Threshold de Risco (Gatilho para Alertas)
+threshold = st.sidebar.slider(
+    "Risco de Churn (Threshold)", 
+    min_value=0.0, max_value=1.0, value=0.70, step=0.05,
+    help="Define a probabilidade mínima para um cliente ser considerado 'Alto Risco'."
 )
 
-# Renderiza a tabela usando seu componente de UI
-ui.render_priority_list(high_risk_list)
+model = load_production_model()
+df_raw = get_data()
 
-# 5. FOOTER
-st.markdown("---")
-st.caption("Churn Radar v2.0 | Data-Driven Retention Strategy")
+if model and not df_raw.empty:
+    # --- PROCESSAMENTO EM TEMPO REAL ---
+    # Remove colunas que o modelo NÃO conhece (Target e Leakage)
+    drop_cols = ['Churned', 'Customer_ID', 'Satisfaction_Score', 'Last_Activity']
+    X_dash = df_raw.drop(columns=[c for c in drop_cols if c in df_raw.columns])
+    
+    # Ajuste de tipos para o XGBoost (Categorical Nativo)
+    for col in X_dash.select_dtypes(include=['object']).columns:
+        X_dash[col] = X_dash[col].astype("category")
+
+    # Predição em Massa
+    probas = model.predict_proba(X_dash)[:, 1]
+    df_raw['Churn_Probability'] = probas
+    
+    # Segmentação
+    high_risk_df = df_raw[df_raw['Churn_Probability'] >= threshold].copy()
+    avg_churn = df_raw['Churn_Probability'].mean()
+
+    # --- DASHBOARD LAYOUT ---
+    kpi1, kpi2, kpi3 = st.columns(3)
+    with kpi1:
+        st.metric("Total de Clientes Analisados", f"{len(df_raw)}")
+    with kpi2:
+        delta = (len(high_risk_df) / len(df_raw)) * 100
+        st.metric("Clientes em Alto Risco", f"{len(high_risk_df)}", f"{delta:.1f}% da base")
+    with kpi3:
+        st.metric("Probabilidade Média de Evasão", f"{avg_churn:.2%}")
+
+    st.markdown("---")
+
+    # --- GRÁFICOS ---
+    col_graph1, col_graph2 = st.columns(2)
+    
+    with col_graph1:
+        st.subheader("📊 Distribuição de Probabilidade")
+        fig_dist = px.histogram(
+            df_raw, x="Churn_Probability", nbins=50,
+            color_discrete_sequence=['#1f77b4'],
+            labels={'Churn_Probability': 'Probabilidade de Churn'}
+        )
+        fig_dist.add_vline(x=threshold, line_dash="dash", line_color="red", annotation_text="Threshold")
+        st.plotly_chart(fig_dist, use_container_width=True)
+
+    with col_graph2:
+        st.subheader("📍 Risco por Região")
+        region_risk = df_raw.groupby('Region')['Churn_Probability'].mean().reset_index()
+        fig_reg = px.bar(region_risk, x='Region', y='Churn_Probability', color='Churn_Probability')
+        st.plotly_chart(fig_reg, use_container_width=True)
+
+    # --- A LISTA TÁTICA (ALTERAÇÃO SOLICITADA) ---
+    st.markdown("### ⚠️ Lista de Alvos: Clientes de Alta Prioridade")
+    st.info("Esta lista contém os dados identificáveis para que o time de Customer Success possa realizar o contato.")
+
+    # Ordenação por gravidade
+    high_risk_display = high_risk_df.sort_values(by='Churn_Probability', ascending=False)
+
+    # Seleção de colunas estratégicas para exibição
+    cols_view = [
+        'Customer_ID', 'Churn_Probability', 'Age', 'Gender', 
+        'Subscription_Length', 'Monthly_Spend', 'Payment_Method', 'Region'
+    ]
+
+    # Renderização da Tabela Interativa
+    st.dataframe(
+        high_risk_display[cols_view].style.format({
+            "Churn_Probability": "{:.2%}",
+            "Monthly_Spend": "R$ {:.2f}"
+        }).background_gradient(subset=['Churn_Probability'], cmap='YlOrRd'),
+        use_container_width=True,
+        hide_index=True
+    )
+
+    # Download dos Alvos
+    csv = high_risk_display[cols_view].to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="📥 Exportar Lista de Alvos (CSV)",
+        data=csv,
+        file_name="clientes_alto_risco.csv",
+        mime="text/csv",
+    )
+
+else:
+    st.warning("⚠️ Aguardando pipeline de dados: Verifique se 'mlflow.db' e 'data/raw/streaming.csv' estão presentes.") 

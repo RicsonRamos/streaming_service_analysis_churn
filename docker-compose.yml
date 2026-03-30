@@ -1,3 +1,5 @@
+version: '3.8'
+
 networks:
   churn_network:
     driver: bridge
@@ -7,9 +9,10 @@ volumes:
   mlflow_artifacts:
 
 services:
+  # Servidor de Rastreamento de Experimentos
   mlflow:
     image: ghcr.io/mlflow/mlflow:latest
-    container_name: mlflow
+    container_name: mlflow_server
     restart: unless-stopped
     command: >
       mlflow server
@@ -17,7 +20,6 @@ services:
       --port 5000
       --backend-store-uri sqlite:////mlflow_data/mlflow.db
       --default-artifact-root /mlflow_artifacts
-      --allowed-hosts "*"
     ports:
       - "5000:5000"
     volumes:
@@ -26,52 +28,29 @@ services:
     networks:
       - churn_network
     healthcheck:
-      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:5000\")'"]
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
       interval: 10s
       timeout: 5s
-      retries: 15
-      start_period: 10s
+      retries: 5
 
+  # Dashboard de Produção
   churn-app:
     build:
-      context: .
+      context: ..
       dockerfile: docker/Dockerfile
-    container_name: churn_radar_prod
+    container_name: churn_radar_dashboard
     restart: unless-stopped
     depends_on:
       mlflow:
         condition: service_healthy
     environment:
-      ENV: production
-      PYTHONPATH: /app
-      CONFIG_PATH: /app/configs
-      MLFLOW_TRACKING_URI: http://mlflow:5000
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - STREAMLIT_SERVER_PORT=8501
     ports:
       - "8501:8501"
+    command: ["streamlit", "run", "app/main_dash.py"]
     volumes:
-      - .:/app
-      - mlflow_artifacts:/mlflow_artifacts  # ADICIONADO: Agora o app enxerga os artefatos
-      - mlflow_data:/mlflow_data            # ADICIONADO: Consistência de dados
+      - ../data:/app/data
+      - ../configs:/app/configs
     networks:
       - churn_network
-
-  trainer:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-    container_name: churn_trainer
-    restart: "no"
-    depends_on:
-      mlflow:
-        condition: service_healthy
-    environment:
-      ENV: production
-      PYTHONPATH: /app
-      CONFIG_PATH: /app/configs
-      MLFLOW_TRACKING_URI: http://mlflow:5000
-    networks:
-      - churn_network
-    volumes:
-      - .:/app
-      - mlflow_artifacts:/mlflow_artifacts
-      - mlflow_data:/mlflow_data
