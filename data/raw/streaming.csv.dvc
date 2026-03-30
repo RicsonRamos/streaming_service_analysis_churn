@@ -1,0 +1,5 @@
+outs:
+- md5: b4501f676bd4cc0c7261c9e4e64b93f5
+  size: 314588
+  hash: md5
+  path: streaming.csv
