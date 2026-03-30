@@ -2,13 +2,12 @@ import pandas as pd
 import logging
 import mlflow
 import mlflow.sklearn
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score, accuracy_score, f1_score
 
 from src.config.loader import ConfigLoader
 from src.data.data_loader import DataLoader
 from src.features.feature_engineering import FeatureEngineer
-from src.models.xgboost import ChurnXGBoost
+from src.models.xgboost import ChurnXGBoost  # Nome da classe corrigido conforme seu erro
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +32,6 @@ class TrainingPipeline:
         drop_cols = self.cfg.get('feature_schema', {}).get('drop_columns', [])
         
         # Filtro Rigoroso: Remove apenas o que não for o Target.
-        # Isso evita o KeyError: 'Churn' no momento do split.
         to_drop = [c for c in drop_cols if c in df.columns and c != target_col]
         
         df_clean = df.drop(columns=to_drop)
@@ -43,7 +41,7 @@ class TrainingPipeline:
 
     def run(self, tune: bool = False):
         """
-        Executa o ciclo de MLOps: Carga -> Sanitização -> Split -> FE -> Treino -> Log.
+        Executa o ciclo de MLOps: Carga -> Sanitização -> SPLIT TEMPORAL -> FE -> Treino -> Log.
         """
         with mlflow.start_run() as run:
             run_id = run.info.run_id
@@ -53,22 +51,23 @@ class TrainingPipeline:
             df_raw = self.dl.load_raw_data()
             
             # 2. SANITIZAÇÃO (Anti-Leakage)
-            # Aqui o Churn deve permanecer no DataFrame.
             df_clean = self._sanitize_data(df_raw)
             
             target_col = self.cfg['feature_schema']['target']
             
-            # Validação de segurança antes do Split
             if target_col not in df_clean.columns:
-                raise KeyError(f"Erro Crítico: A coluna target '{target_col}' não foi encontrada após a sanitização.")
+                raise KeyError(f"Erro Crítico: A coluna target '{target_col}' não foi encontrada.")
 
-            # 3. SPLIT (Estratificado para manter proporção de Churn)
-            train_df, test_df = train_test_split(
-                df_clean, 
-                test_size=self.cfg['model_metadata']['test_size'],
-                random_state=self.cfg['hyperparameters']['random_state'],
-                stratify=df_clean[target_col] 
-            )
+            # 3. SPLIT TEMPORAL (Melhoria: Out-of-Time Validation)
+            # Rigor: Em vez de aleatório, pegamos o final do arquivo como o "Futuro".
+            test_size = self.cfg['model_metadata']['test_size']
+            split_idx = int(len(df_clean) * (1 - test_size))
+            
+            # Divide sem Shuffle para simular a passagem do tempo
+            train_df = df_clean.iloc[:split_idx].copy()
+            test_df = df_clean.iloc[split_idx:].copy()
+            
+            logger.info(f"Split Temporal Aplicado: Treino (0 a {split_idx}) | Teste ({split_idx} a {len(df_clean)})")
 
             # 4. ENGENHARIA DE FEATURES (Fit no treino, Transform em ambos)
             logger.info("Executando Feature Engineering (Zero Leakage)...")
@@ -77,7 +76,7 @@ class TrainingPipeline:
             X_train = self.fe.transform(train_df)
             X_test = self.fe.transform(test_df)
             
-            # 5. SEPARAÇÃO DO TARGET (Somente após a engenharia)
+            # 5. SEPARAÇÃO DO TARGET
             y_train = X_train.pop(target_col)
             y_test = X_test.pop(target_col)
 
@@ -85,7 +84,7 @@ class TrainingPipeline:
             model_wrapper = ChurnXGBoost(self.cfg)
             model_wrapper.train(X_train, y_train)
 
-            # 7. AVALIAÇÃO
+            # 7. AVALIAÇÃO (No set de teste/futuro)
             y_proba = model_wrapper.predict_proba(X_test)
             y_pred = model_wrapper.predict(X_test)
 
@@ -95,20 +94,20 @@ class TrainingPipeline:
                 "f1_score": float(f1_score(y_test, y_pred))
             }
 
-            # 8. LOG DE PARÂMETROS E MÉTRICAS NO MLFLOW
+            # 8. LOG NO MLFLOW
+            mlflow.log_param("split_method", "temporal_no_shuffle")
             mlflow.log_params(self.cfg['hyperparameters'])
             mlflow.log_metrics(metrics)
             
-            # Registro das colunas para consistência na inferência
             feature_names = X_train.columns.tolist()
             
             mlflow.sklearn.log_model(
                 sk_model=model_wrapper.model,
-                artifact_path="model",
+                name="model",
                 registered_model_name="Churn-XGB-Prod"
             )
 
-            # 9. SALVAMENTO DO ARTEFATO (Dicionário completo para o Dashboard)
+            # 9. SALVAMENTO DO ARTEFATO
             artifact = {
                 "model": model_wrapper.model,
                 "features": feature_names,
@@ -121,5 +120,5 @@ class TrainingPipeline:
                 artifact=artifact
             )
 
-            logger.info(f"Pipeline finalizada. AUC: {metrics['roc_auc']:.4f}")
+            logger.info(f"Pipeline finalizada. AUC Temporal: {metrics['roc_auc']:.4f}")
             return run_id
