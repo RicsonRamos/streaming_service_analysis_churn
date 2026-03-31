@@ -23,9 +23,6 @@ COPY app/ /app/app/
 COPY configs/ /app/configs/
 COPY main.py /app/main.py
 
-# NÃO copia data/ - usaremos volume mount em desenvolvimento
-# NÃO copia mlflow.db - usamos servidor remoto
-
 EXPOSE 8501
 
 # Comando padrão (sobrescrito pelo docker-compose)

@@ -12,6 +12,11 @@ from src.models.xgboost import ChurnXGBoost  # Nome da classe corrigido conforme
 logger = logging.getLogger(__name__)
 
 class TrainingPipeline:
+    """
+    Classe responsável por executar o ciclo de MLOps:
+    Carga -> Sanitização -> SPLIT TEMPORAL -> FE -> Treino -> Log.
+    """
+
     def __init__(self):
         """
         Inicializa o pipeline carregando configurações e instanciando ferramentas.
@@ -41,7 +46,16 @@ class TrainingPipeline:
 
     def run(self, tune: bool = False):
         """
-        Executa o ciclo de MLOps: Carga -> Sanitização -> SPLIT TEMPORAL -> FE -> Treino -> Log.
+        Executa o ciclo de MLOps:
+        1. Carga
+        2. Sanitização (Anti-Leakage)
+        3. SPLIT TEMPORAL (Melhoria: Out-of-Time Validation)
+        4. ENGENHARIA DE FEATURES (Fit no treino, Transform em ambos)
+        5. SEPARAÇÃO DO TARGET
+        6. TREINAMENTO
+        7. AVALIAÇÃO (No set de teste/futuro)
+        8. LOG NO MLFLOW
+        9. SALVAMENTO DO ARTEFATO
         """
         with mlflow.start_run() as run:
             run_id = run.info.run_id

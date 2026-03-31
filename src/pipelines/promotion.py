@@ -5,6 +5,10 @@ from src.config.loader import ConfigLoader
 logger = logging.getLogger(__name__)
 
 class ModelPromoter:
+    """
+    Classe que avalia as métricas de um Run e promove para 'Production' no Model Registry
+    se os requisitos mínimos forem atingidos.
+    """
     def __init__(self, tracking_uri=None):
         """
         Inicializa o Promoter com as configurações globais e o cliente MLflow.
@@ -30,6 +34,12 @@ class ModelPromoter:
         """
         Avalia as métricas de um Run e promove para 'Production' no Model Registry
         se os requisitos mínimos forem atingidos.
+        
+        Args:
+            run_id: ID da run a ser promovida.
+        
+        Returns:
+            bool: True se a promoção for bem-sucedida, False caso contrário.
         """
         try:
             # 1. Recuperar dados da Run
@@ -52,7 +62,7 @@ class ModelPromoter:
 
             # 4. Promoção no Model Registry
             logger.info(f"APROVADO: Promovendo modelo {run_id} para 'Production'...")
-
+            
             # Regista o modelo
             model_uri = f"runs:/{run_id}/model"
             model_version = mlflow.register_model(model_uri, self.model_name)

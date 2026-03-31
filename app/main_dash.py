@@ -26,8 +26,16 @@ st.markdown("""
 # 2. FUNÇÕES DE CARGA (Rigor de Governança)
 @st.cache_resource
 def load_production_model():
-    """Busca o modelo 'Production' no MLflow Registry via SERVIDOR."""
-    # CORREÇÃO 1: Usar servidor MLflow, não SQLite local
+    """
+    Busca o modelo 'Production' no MLflow Registry via SERVIDOR.
+
+    Essa função busca o modelo com o nome 'Churn-XGB-Prod' no
+    MLflow Registry e o retorna se encontrar. Caso contrário,
+    retorna None e registra um erro no Streamlit.
+
+    Returns:
+        mlflow.sklearn.Model: O modelo encontrado no MLflow Registry.
+    """
     tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
     mlflow.set_tracking_uri(tracking_uri)
     
@@ -42,7 +50,7 @@ def load_production_model():
 @st.cache_data
 def get_data():
     """Carrega a base bruta para manter os IDs e metadados de exibição."""
-    # CORREÇÃO 2: Caminho absoluto no container Docker
+  
     path = "/app/data/raw/streaming.csv"
     if not Path(path).exists():
         st.error(f"Arquivo não encontrado em {path}")

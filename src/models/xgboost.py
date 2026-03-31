@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 class ChurnXGBoost:
     """
     High-level wrapper for XGBoost churn classification.
+
+    Encapsulates the XGBoost classifier with custom logic for training, 
+    inference, and integration with project-wide configurations.
     """
 
     def __init__(self, cfg: Dict[str, Any]):
@@ -34,7 +37,7 @@ class ChurnXGBoost:
             "random_state": 42
         })
         
-        # CORREÇÃO: Ativa suporte nativo para colunas categóricas (Pandas category)
+        # Habilita o uso de categorias para melhorar a performance
         self.params["enable_categorical"] = True
         
         if "eval_metric" not in self.params:
@@ -50,19 +53,35 @@ class ChurnXGBoost:
         self.model.fit(X_train, y_train)
 
     def predict(self, X: pd.DataFrame) -> pd.Series:
-        """Predicts binary classes."""
+        """
+        Predicts binary classes.
+
+        Returns:
+            pd.Series: Binary predictions (0/1) for the test set.
+        """
         return self.model.predict(X)
 
     def predict_proba(self, X: pd.DataFrame) -> pd.Series:
         """
         Predicts churn probability for the positive class (1).
+
         Garante que a ordem das colunas esteja correta antes da inferência.
+
+        Returns:
+            pd.Series: Churn probability predictions for the test set.
         """
         return self.model.predict_proba(X)[:, 1]
 
     def get_feature_importance(self) -> pd.DataFrame:
         """
         Returns a formatted DataFrame with feature importance scores.
+
+        The importance score is the gain in accuracy of the model if the feature
+        is used in isolation. The feature with the highest importance score is
+        the most informative feature.
+
+        Returns:
+            pd.DataFrame: DataFrame with feature importance scores.
         """
         importance = self.model.feature_importances_
         # Obtém os nomes das features diretamente do booster treinado
@@ -79,6 +98,11 @@ class ChurnXGBoost:
     def save(self, path: str, artifact: dict = None):
         """
         Salva o modelo ou um dicionário de artefatos.
+
+        Args:
+            path (str): Path to store the model artifact.
+            artifact (dict, optional): Dicionário de artefatos para salvar
+                ao lado do modelo.
         """
         try:
             if artifact:
@@ -95,6 +119,12 @@ class ChurnXGBoost:
     def load(self, path: str):
         """
         Loads the full model artifact and restores the internal model object.
+
+        Args:
+            path (str): Path to load the model artifact.
+
+        Returns:
+            dict: Dicionário de artefatos carregado.
         """
         artifact = joblib.load(path)
         self.model = artifact["model"]

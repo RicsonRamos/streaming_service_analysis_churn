@@ -24,9 +24,28 @@ from sklearn.metrics import (
 )
 
 
+"""
+Evaluation Utilities
+Handles metric calculation, threshold optimization,
+business metrics, and markdown reporting.
+"""
+
 class ModelEvaluator:
+    """
+    Model Evaluator class.
+
+    Handles metric calculation, threshold optimization,
+    business metrics, and markdown reporting.
+    """
 
     def __init__(self, artifacts_path: str, figures_path: str, reports_path: str):
+        """
+        Initialize the Model Evaluator.
+
+        :param artifacts_path: Path to the artifacts directory.
+        :param figures_path: Path to the figures directory.
+        :param reports_path: Path to the reports directory.
+        """
         self.artifacts_path = Path(artifacts_path)
         self.figures_path = Path(figures_path)
         self.reports_path = Path(reports_path)
@@ -38,12 +57,21 @@ class ModelEvaluator:
     # ---------------------------------------------------
     # Core Metrics
     # ---------------------------------------------------
-    def _compute_core_metrics(self, y_true, y_pred, probs):
 
+    def _compute_core_metrics(self, y_true, y_pred, probs):
+        """
+        Compute the core metrics (ROC-AUC, PR-AUC, accuracy, precision, recall, F1-score, Brier score).
+
+        :param y_true: Actual labels.
+        :param y_pred: Predicted labels.
+        :param probs: Predicted probabilities.
+
+        :return: A dictionary with the core metrics.
+        """
         metrics = {}
 
         metrics["roc_auc"] = roc_auc_score(y_true, probs)
-        metrics["pr_auc"] = average_precision_score(y_true, probs)
+        metrics["prauc"] = average_precision_score(y_true, probs)
 
         metrics["accuracy"] = accuracy_score(y_true, y_pred)
         metrics["precision"] = precision_score(y_true, y_pred)
@@ -57,8 +85,16 @@ class ModelEvaluator:
     # ---------------------------------------------------
     # Threshold Optimization
     # ---------------------------------------------------
-    def _optimize_threshold(self, y_true, probs):
 
+    def _optimize_threshold(self, y_true, probs):
+        """
+        Optimize the threshold for the F1-score.
+
+        :param y_true: Actual labels.
+        :param probs: Predicted probabilities.
+
+        :return: A dictionary with the best threshold and the corresponding F1-score.
+        """
         thresholds = np.linspace(0.05, 0.95, 181)
 
         best_f1 = 0
@@ -80,8 +116,17 @@ class ModelEvaluator:
     # ---------------------------------------------------
     # Lift Metrics
     # ---------------------------------------------------
-    def _compute_lift(self, y_true, probs, top_pct=0.1):
 
+    def _compute_lift(self, y_true, probs, top_pct=0.1):
+        """
+        Compute the lift metrics (lift, churn rate).
+
+        :param y_true: Actual labels.
+        :param probs: Predicted probabilities.
+        :param top_pct: Top percentage of the sorted data.
+
+        :return: A dictionary with the lift metrics.
+        """
         data = np.column_stack([y_true, probs])
         data = data[data[:, 1].argsort()[::-1]]
 
@@ -102,8 +147,18 @@ class ModelEvaluator:
     # ---------------------------------------------------
     # Public Interface
     # ---------------------------------------------------
-    def evaluate(self, y_test, y_pred, probs, model_name: str):
 
+    def evaluate(self, y_test, y_pred, probs, model_name: str):
+        """
+        Evaluate the model.
+
+        :param y_test: Actual labels.
+        :param y_pred: Predicted labels.
+        :param probs: Predicted probabilities.
+        :param model_name: Model name.
+
+        :return: A dictionary with the evaluation metrics.
+        """
         metrics = {}
 
         # Core
@@ -133,15 +188,26 @@ class ModelEvaluator:
     # ---------------------------------------------------
     # Saving
     # ---------------------------------------------------
-    def _save_json(self, metrics, model_name):
 
+    def _save_json(self, metrics, model_name):
+        """
+        Save the metrics to a JSON file.
+
+        :param metrics: Evaluation metrics.
+        :param model_name: Model name.
+        """
         path = self.artifacts_path / f"{model_name}_metrics.json"
 
         with open(path, "w") as f:
             json.dump(metrics, f, indent=4)
 
     def _save_markdown(self, metrics, model_name):
+        """
+        Save the metrics to a Markdown file.
 
+        :param metrics: Evaluation metrics.
+        :param model_name: Model name.
+        """
         path = self.reports_path / f"{model_name}_metrics.md"
 
         lines = []
@@ -151,7 +217,7 @@ class ModelEvaluator:
         lines.append("## Core Metrics\n")
 
         lines.append(f"- ROC-AUC: {metrics['roc_auc']:.4f}")
-        lines.append(f"- PR-AUC: {metrics['pr_auc']:.4f}")
+        lines.append(f"- PR-AUC: {metrics['prauc']:.4f}")
         lines.append(f"- Accuracy: {metrics['accuracy']:.4f}")
         lines.append(f"- Precision: {metrics['precision']:.4f}")
         lines.append(f"- Recall: {metrics['recall']:.4f}")
@@ -177,8 +243,16 @@ class ModelEvaluator:
     # ---------------------------------------------------
     # Plots
     # ---------------------------------------------------
-    def _save_plots(self, y_true, y_pred, probs, model_name):
 
+    def _save_plots(self, y_true, y_pred, probs, model_name):
+        """
+        Save the plots to files.
+
+        :param y_true: Actual labels.
+        :param y_pred: Predicted labels.
+        :param probs: Predicted probabilities.
+        :param model_name: Model name.
+        """
         # Confusion Matrix
         plt.figure(figsize=(6, 5))
 

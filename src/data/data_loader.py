@@ -11,6 +11,20 @@ from typing import Optional
 # 1. INSTANCIAR O LOGGER (O ponto da falha)
 logger = logging.getLogger(__name__)
 
+"""
+Data I/O Module.
+Handles all data ingestion and persistence operations.
+"""
+
+import pandas as pd
+import logging
+from pathlib import Path
+from typing import Optional
+
+# 1. INSTANCIAR O LOGGER (O ponto da falha)
+logger = logging.getLogger(__name__)
+
+
 class DataLoader:
     """
     Service for managing data loading and saving operations.
@@ -19,6 +33,11 @@ class DataLoader:
     def __init__(self, cfg: dict):
         """
         Initializes the loader with project configurations.
+
+        Parameters
+        ----------
+        cfg : dict
+            Project configurations.
         """
         self.cfg = cfg
 
@@ -26,6 +45,11 @@ class DataLoader:
         """
         Garante que os nomes das colunas não tenham espaços ou caracteres invisíveis.
         Rigor: Evita o erro de KeyError que paralisou o pipeline.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame com colunas sanitizadas.
         """
         df.columns = [c.strip() for c in df.columns]
         return df
@@ -33,6 +57,11 @@ class DataLoader:
     def load_raw_data(self) -> pd.DataFrame:
         """
         Carrega os dados brutos e sanitiza os cabeçalhos.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame com dados brutos.
         """
         path = self.cfg['data']['raw_source']
         try:
@@ -51,6 +80,11 @@ class DataLoader:
     def load_processed_data(self) -> Optional[pd.DataFrame]:
         """
         Carrega o dataset processado.
+
+        Returns
+        -------
+        pd.DataFrame or None
+            DataFrame com dados processados ou None se não encontrado.
         """
         path = Path(self.cfg["data"]["final_dataset"])
         if not path.exists():
@@ -63,6 +97,11 @@ class DataLoader:
     def save_processed_data(self, df: pd.DataFrame) -> None:
         """
         Persiste o DataFrame no diretório de dados processados.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            DataFrame com dados processados.
         """
         path = Path(self.cfg["data"]["final_dataset"])
         try:

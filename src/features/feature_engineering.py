@@ -5,12 +5,19 @@ import logging
 logger = logging.getLogger(__name__)
 
 class FeatureEngineer:
+    """
+    Classe que encapsula as operações de Feature Engineering.
+    """
+
     def __init__(self, cfg: dict):
+        """
+        Inicializa o FeatureEngineer com parâmetros do YAML.
+        """
         self.cfg = cfg
         self.schema = cfg.get("feature_schema", {})
         self.target = self.schema.get("target")
         self.drop_cols = self.schema.get("drop_columns", [])
-        self.params = {} 
+        self.params = {}
 
     def fit(self, X: pd.DataFrame):
         """
@@ -18,7 +25,7 @@ class FeatureEngineer:
         Rigor: Evita que informações do teste vazem para o treino via médias/medianas.
         """
         logger.info("Calculando parâmetros de Feature Engineering (Fit)...")
-        
+
         # Exemplo: Salvar medianas para preenchimento de nulos futuro
         if 'MonthlyCharges' in X.columns:
             self.params['median_monthly'] = X['MonthlyCharges'].median()
@@ -33,10 +40,10 @@ class FeatureEngineer:
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Aplica as transformações de forma determinística.
+        Aplica as transformações de forma determinística com base nos parâmetros do Fit.
         """
         X = df.copy()
-        
+
         # 1. REMOÇÃO DE COLUNAS PROIBIDAS (Anti-Leakage)
         # Além do target (que o pipeline remove), precisamos tirar o que foi definido no YAML
         cols_to_drop = [c for c in self.drop_cols if c in X.columns]

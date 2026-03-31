@@ -4,9 +4,26 @@ import logging
 logger = logging.getLogger(__name__)
 
 class ChurnService:
+    """
+    Serviço responsável por realizar predições de churn em conjuntos de dados.
+    """
     def predict_churn(self, model, df, threshold):
         """
         Realiza a predição garantindo alinhamento de tipos para o XGBoost.
+
+        Parameters
+        ----------
+        model : XGBoost
+            Modelo treinado para predição de churn
+        df : pandas.DataFrame
+            Conjunto de dados com as features a serem utilizadas para predição
+        threshold : float
+            Nível de risco (probabilidade) acima do qual o cliente é considerado 'High Risk'
+
+        Returns
+        -------
+        pandas.DataFrame
+            Conjunto de dados com as features originais e as colunas adicionais 'Churn_Probability' e 'Risk_Level'
         """
         # 1. PRÉ-PROCESSAMENTO (Fiel ao treino)
         drop_cols = ['Churned', 'Customer_ID', 'Satisfaction_Score', 'Last_Activity']

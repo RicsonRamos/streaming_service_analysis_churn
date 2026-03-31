@@ -13,7 +13,7 @@ Plataforma completa de **MLOps** para predição e gestão de Churn em serviços
 
 ## 📑 Sumário
 
-- [�️ Streaming Service Churn Radar (v3.0 - Production Ready)](#️-streaming-service-churn-radar-v30---production-ready)
+- [🛡️ Streaming Service Churn Radar (v3.0 - Production Ready)](#️-streaming-service-churn-radar-v30---production-ready)
   - [📑 Sumário](#-sumário)
   - [📖 O Storytelling por trás dos Dados](#-o-storytelling-por-trás-dos-dados)
     - [O Desafio do Streaming Moderno](#o-desafio-do-streaming-moderno)
@@ -37,7 +37,6 @@ Plataforma completa de **MLOps** para predição e gestão de Churn em serviços
     - [2. Acesso às Interfaces](#2-acesso-às-interfaces)
     - [3. Ciclo de Vida do Modelo](#3-ciclo-de-vida-do-modelo)
     - [4. Gerenciamento de Dados com DVC](#4-gerenciamento-de-dados-com-dvc)
-  - [🖥️ Interface Operacional](#️-interface-operacional)
     - [Painel Principal com KPIs Financeiros](#painel-principal-com-kpis-financeiros)
     - [Lista Tática de Alvos (Priorizada por Valor)](#lista-tática-de-alvos-priorizada-por-valor)
     - [Análise SHAP Individual com Contexto Financeiro](#análise-shap-individual-com-contexto-financeiro)
@@ -343,10 +342,6 @@ dvc repro  # Reexecuta pipeline com dados exatos
 ```
 
 ---
-
-## 🖥️ Interface Operacional
-
-> 🎬 **[Ver demo em vídeo](#)** | 📸 **[Screenshots do dashboard](#)**
 
 ### Painel Principal com KPIs Financeiros
 

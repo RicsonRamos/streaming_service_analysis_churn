@@ -28,16 +28,27 @@ class CustomerSchema(BaseModel):
     Gender: str
     Region: str
     Payment_Method: str
-    
+
     # Note: Engineered features are usually validated after creation
     # or made optional if validating raw input.
-    Estimated_LTV: Optional[float] = Field(ge=0, default=0.0)
+    estimated_LTV: Optional[float] = Field(ge=0, default=0.0)
     Engagement_Score: Optional[float] = Field(ge=0, default=0.0)
 
     @field_validator('Gender')
     @classmethod
     def validate_gender(cls, v: str) -> str:
-        """Validates that gender matches expected categories."""
+        """
+        Validates that gender matches expected categories.
+        
+        Args:
+            v (str): Gender value to validate.
+        
+        Returns:
+            str: Valid gender value.
+        
+        Raises:
+            ValueError: If gender does not match expected categories.
+        """
         allowed = ['Male', 'Female']
         if v not in allowed:
             raise ValueError(f"Gender must be one of {allowed}")
@@ -46,7 +57,18 @@ class CustomerSchema(BaseModel):
     @field_validator('Region')
     @classmethod
     def validate_region(cls, v: str) -> str:
-        """Validates that region matches the training set categories."""
+        """
+        Validates that region matches the training set categories.
+        
+        Args:
+            v (str): Region value to validate.
+        
+        Returns:
+            str: Valid region value.
+        
+        Raises:
+            ValueError: If region does not match expected categories.
+        """
         allowed = ['North', 'South', 'East', 'West']
         if v not in allowed:
             raise ValueError(f"Region '{v}' is not supported.")

@@ -15,8 +15,10 @@ logger = logging.getLogger(__name__)
 class ChurnTuner:
     """
     Handles the optimization logic for the XGBoost classifier.
-    """
 
+    Responsible for finding the optimal set of hyperparameters for the XGBoost model,
+    focusing on maximizing the ROC-AUC score while preventing overfitting.
+    """
     def __init__(self, X_train, y_train):
         """
         Initializes the tuner with training data.
@@ -31,8 +33,20 @@ class ChurnTuner:
     def objective(self, trial):
         """
         Objective function for Optuna to minimize/maximize.
-        
+
         Defines the search space for XGBoost hyperparameters.
+
+        The search space is defined as follows:
+        - n_estimators: 50 to 500 (inclusive)
+        - max_depth: 3 to 10 (inclusive)
+        - learning_rate: 0.01 to 0.3 (logarithmic scale)
+        - subsample: 0.5 to 1.0 (inclusive)
+        - colsample_bytree: 0.5 to 1.0 (inclusive)
+        - gamma: 1e-8 to 1.0 (logarithmic scale)
+        - random_state: fixed at 42 for reproducibility
+        - eval_metric: fixed at "logloss" for consistency
+
+        The function uses Cross-Validation to ensure the parameters generalize well.
         """
         params = {
             "n_estimators": trial.suggest_int("n_estimators", 50, 500),
