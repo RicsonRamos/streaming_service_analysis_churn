@@ -3,6 +3,9 @@ import pandas as pd
 import mlflow
 import mlflow.sklearn
 import plotly.express as px
+import shap
+import matplotlib.pyplot as plt
+import os
 from pathlib import Path
 
 # 1. CONFIGURAÇÃO DE AMBIENTE E PÁGINA
@@ -23,11 +26,13 @@ st.markdown("""
 # 2. FUNÇÕES DE CARGA (Rigor de Governança)
 @st.cache_resource
 def load_production_model():
-    """Busca o modelo 'Production' no MLflow Registry via SQLite."""
-    mlflow.set_tracking_uri("sqlite:///mlflow.db")
+    """Busca o modelo 'Production' no MLflow Registry via SERVIDOR."""
+    # CORREÇÃO 1: Usar servidor MLflow, não SQLite local
+    tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
+    mlflow.set_tracking_uri(tracking_uri)
+    
     model_name = "Churn-XGB-Prod"
     try:
-        # Carrega sempre a versão marcada como 'Production'
         model = mlflow.sklearn.load_model(f"models:/{model_name}/Production")
         return model
     except Exception as e:
@@ -37,7 +42,8 @@ def load_production_model():
 @st.cache_data
 def get_data():
     """Carrega a base bruta para manter os IDs e metadados de exibição."""
-    path = "data/raw/streaming.csv"
+    # CORREÇÃO 2: Caminho absoluto no container Docker
+    path = "/app/data/raw/streaming.csv"
     if not Path(path).exists():
         st.error(f"Arquivo não encontrado em {path}")
         return pd.DataFrame()
@@ -54,12 +60,15 @@ threshold = st.sidebar.slider(
     help="Define a probabilidade mínima para um cliente ser considerado 'Alto Risco'."
 )
 
+# NOVO: Botão para análise SHAP
+show_shap = st.sidebar.checkbox("🔍 Mostrar Análise SHAP", value=False, 
+                                help="Explica a importância das features para cada predição")
+
 model = load_production_model()
 df_raw = get_data()
 
 if model and not df_raw.empty:
     # --- PROCESSAMENTO EM TEMPO REAL ---
-    # Remove colunas que o modelo NÃO conhece (Target e Leakage)
     drop_cols = ['Churned', 'Customer_ID', 'Satisfaction_Score', 'Last_Activity']
     X_dash = df_raw.drop(columns=[c for c in drop_cols if c in df_raw.columns])
     
@@ -87,6 +96,63 @@ if model and not df_raw.empty:
 
     st.markdown("---")
 
+    # --- ANÁLISE SHAP (NOVO) ---
+    if show_shap:
+        st.header("🔍 Explicabilidade SHAP")
+        st.markdown("Entenda quais features contribuem para o risco de churn de cada cliente.")
+        
+        # Preparar dados para SHAP
+        X_shap = X_dash.copy()
+        
+        # Converter categorias para numérico (SHAP não aceita categorias diretamente)
+        for col in X_shap.select_dtypes(include=['category']).columns:
+            X_shap[col] = X_shap[col].cat.codes
+        
+        # Calcular SHAP values
+        explainer = shap.TreeExplainer(model)
+        shap_values = explainer.shap_values(X_shap)
+        
+        # Selecionar cliente para análise detalhada
+        col_shap1, col_shap2 = st.columns([1, 2])
+        
+        with col_shap1:
+            st.subheader("Cliente para Análise")
+            # Top 10 clientes de maior risco
+            top_risk_ids = high_risk_df.nlargest(10, 'Churn_Probability')['Customer_ID'].tolist()
+            selected_customer = st.selectbox("Selecione um cliente de alto risco:", top_risk_ids)
+            
+            # Índice do cliente selecionado
+            customer_idx = df_raw[df_raw['Customer_ID'] == selected_customer].index[0]
+            
+            st.write(f"**Probabilidade de Churn:** {df_raw.loc[customer_idx, 'Churn_Probability']:.2%}")
+        
+        with col_shap2:
+            st.subheader(f"Contribuição das Features")
+            
+            # Waterfall plot para o cliente selecionado
+            fig, ax = plt.subplots(figsize=(10, 6))
+            shap.plots.waterfall(
+                shap.Explanation(
+                    values=shap_values[customer_idx],
+                    base_values=explainer.expected_value,
+                    data=X_shap.iloc[customer_idx],
+                    feature_names=X_shap.columns.tolist()
+                ),
+                show=False
+            )
+            plt.tight_layout()
+            st.pyplot(fig)
+            plt.clf()
+        
+        # Summary plot global
+        st.subheader("Importância Global das Features")
+        fig2, ax2 = plt.subplots(figsize=(10, 6))
+        shap.summary_plot(shap_values, X_shap, show=False)
+        plt.tight_layout()
+        st.pyplot(fig2)
+        
+        st.markdown("---")
+
     # --- GRÁFICOS ---
     col_graph1, col_graph2 = st.columns(2)
     
@@ -106,20 +172,17 @@ if model and not df_raw.empty:
         fig_reg = px.bar(region_risk, x='Region', y='Churn_Probability', color='Churn_Probability')
         st.plotly_chart(fig_reg, use_container_width=True)
 
-    # --- A LISTA TÁTICA (ALTERAÇÃO SOLICITADA) ---
+    # --- A LISTA TÁTICA ---
     st.markdown("### ⚠️ Lista de Alvos: Clientes de Alta Prioridade")
     st.info("Esta lista contém os dados identificáveis para que o time de Customer Success possa realizar o contato.")
 
-    # Ordenação por gravidade
     high_risk_display = high_risk_df.sort_values(by='Churn_Probability', ascending=False)
 
-    # Seleção de colunas estratégicas para exibição
     cols_view = [
         'Customer_ID', 'Churn_Probability', 'Age', 'Gender', 
         'Subscription_Length', 'Monthly_Spend', 'Payment_Method', 'Region'
     ]
 
-    # Renderização da Tabela Interativa
     st.dataframe(
         high_risk_display[cols_view].style.format({
             "Churn_Probability": "{:.2%}",
@@ -139,4 +202,4 @@ if model and not df_raw.empty:
     )
 
 else:
-    st.warning("⚠️ Aguardando pipeline de dados: Verifique se 'mlflow.db' e 'data/raw/streaming.csv' estão presentes.") 
+    st.warning("⚠️ Aguardando pipeline de dados: Verifique se o modelo foi treinado e o MLflow está acessível em http://mlflow:5000")

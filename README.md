@@ -1,111 +1,239 @@
-# 🛡️ Streaming Service Churn Radar (v2.0 - Production Ready)
+
+# 🛡️ Streaming Service Churn Radar (v3.0 - Production Ready)
 
 [![Python](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/)
 [![MLflow](https://img.shields.io/badge/MLflow-Tracking%20%26%20Registry-orange.svg)](https://mlflow.org/)
 [![XGBoost](https://img.shields.io/badge/Model-XGBoost%20Native-green.svg)](https://xgboost.readthedocs.io/)
 [![Streamlit](https://img.shields.io/badge/Interface-Operational%20Dash-red.svg)](https://streamlit.io/)
+[![SHAP](https://img.shields.io/badge/Explainability-SHAP-purple.svg)](https://shap.readthedocs.io/)
 
-Este projeto é uma plataforma completa de **MLOps** para predição e gestão de Churn em serviços de streaming. Diferente de modelos puramente acadêmicos, esta arquitetura foi desenhada para **ação tática**, integrando o treinamento rastreável à uma interface de decisão que identifica clientes em risco em tempo real.
+Plataforma completa de **MLOps** para predição e gestão de Churn em serviços de streaming. Arquitetura desenhada para **ação tática em tempo real**, integrando treinamento rastreável, governança de modelos e interface de decisão com explicabilidade individual.
 
 ## 🎯 Objetivo Estratégico
-Transformar dados históricos em **inteligência preventiva**. O sistema identifica padrões comportamentais que precedem o cancelamento, permitindo que a equipe de retenção atue nos clientes de maior valor antes da perda definitiva.
+
+Transformar dados históricos em **inteligência preventiva acionável**. O sistema identifica padrões comportamentais que precedem o cancelamento, permitindo que a equipe de retenção atue proativamente nos clientes de maior valor antes da perda definitiva.
 
 ---
 
 ## 🏗️ Arquitetura do Sistema
-O projeto utiliza uma estrutura modular e desacoplada, garantindo que modificações na engenharia de atributos não quebrem a interface de usuário.
 
-* **Data Pipeline:** Carregamento sanitizado com remoção automática de *Target Leakage* (IDs e métricas de satisfação pós-evento).
-* **ML Engine:** XGBoost com suporte nativo a variáveis categóricas.
-* **Governança (MLflow):** Experimentos registrados em banco SQLite local, com versionamento de modelos no *Model Registry*.
-* **Operational Dash:** Interface Streamlit que consome o modelo em estágio de `Production` para gerar listas de alvos.
+```
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│   Data Layer    │────▶│   ML Pipeline    │────▶│  MLflow Server  │
+│  (SQLite/CSV)   │     │ (XGBoost + SHAP) │     │  (Registry)     │
+└─────────────────┘     └──────────────────┘     └────────┬────────┘
+                                                         │
+                              ┌──────────────────────────┘
+                              ▼
+                    ┌──────────────────┐
+                    │  Streamlit Dash  │
+                    │  (Operational)   │
+                    └──────────────────┘
+```
+
+### Componentes Principais
+
+| Camada | Tecnologia | Função |
+|:---|:---|:---|
+| **Data Pipeline** | Pandas + YAML | Carregamento sanitizado com remoção automática de *Target Leakage* |
+| **ML Engine** | XGBoost (Native Categorical) | Modelo com suporte nativo a variáveis categóricas |
+| **Explainability** | SHAP | Análise de contribuição individual por feature |
+| **Governança** | MLflow | Tracking, Model Registry e versionamento |
+| **Interface** | Streamlit | Dashboard operacional com lista de alvos e SHAP |
 
 ---
 
 ## 📊 Performance e Rigor Estatístico
-Após a limpeza de variáveis viciadas (`Customer_ID`, `Satisfaction_Score`, `Last_Activity`), o modelo atingiu métricas realistas e robustas:
 
-| Métrica | Valor Final | Status |
-| :--- | :--- | :--- |
-| **ROC AUC** | **0.8595** | ✅ Robusto |
-| **Accuracy** | **0.838** | ✅ Confiável |
-| **F1-Score** | **0.804** | ✅ Equilibrado |
+Após limpeza rigorosa de variáveis viciadas (`Customer_ID`, `Satisfaction_Score`, `Last_Activity`):
 
-> **Nota do Analista:** Modelos com AUC 1.00 foram descartados durante o desenvolvimento por apresentarem vazamento de dados (*data leakage*). A versão atual (v12) reflete o comportamento real e generalizável dos clientes.
+| Métrica | Valor | Metodologia | Status |
+|:---|:---|:---|:---|
+| **ROC AUC** | **0.8493** | Split Temporal (Out-of-Time) | ✅ Robusto |
+| **Accuracy** | **0.822** | Validação no "futuro" | ✅ Confiável |
+| **F1-Score** | **0.779** | Balanceado Precision/Recall | ✅ Equilibrado |
+
+> **⚠️ Nota de Rigor:** Modelos com AUC > 0.95 foram descartados por apresentarem *data leakage*. A versão atual (v3.0) reflete comportamento real e generalizável, validado temporalmente.
+
+### Por que Split Temporal?
+
+Diferente de split aleatório tradicional, nossa abordagem simula a **passagem do tempo**:
+
+```
+Dados Históricos: [████████████████████░░░░░░░░░░]
+                  └─ Treino (80%) ─┘└── Teste (20%) ─┘
+                                     (Futuro simulado)
+```
+
+Isso garante que o modelo seja avaliado em dados que **nunca viu**, refletindo cenário real de produção.
 
 ---
 
-## 🛠️ Tecnologias Utilizadas
-* **Core:** Python 3.12, Pandas, Scikit-Learn.
-* **Modelo:** XGBoost (Extreme Gradient Boosting).
-* **MLOps:** MLflow (Tracking & Model Registry).
-* **Interface:** Streamlit (Dashboard Preditivo).
-* **Banco de Metadados:** SQLite.
+## 🔍 Explicabilidade SHAP
+
+Cada predição é acompanhada de análise de contribuição das features:
+
+| Visualização | Propósito |
+|:---|:---|
+| **Waterfall Plot** | Explicação individual do cliente selecionado |
+| **Summary Plot** | Importância global das features na base |
+| **Force Plot** | Direção do impacto (positivo/negativo para retenção) |
+
+> **Exemplo de Insight:** *"Cliente ID-4523 tem 85% de risco de churn porque seus `Support_Tickets_Raised` (3 tickets) e `Discount_Offered` (0%) contribuem +12% e +8% respectivamente para o risco."*
 
 ---
 
-## 🚀 Execução do Pipeline
+## 🚀 Execução do Sistema
 
-### 1. Preparação do Ambiente
+### 1. Preparação do Ambiente (Docker - Recomendado)
+
 ```bash
-# Criar e ativar ambiente virtual
-python -m venv .venv
-source .venv/bin/activate  # No Windows: .venv\Scripts\activate
+# Clonar e entrar no diretório
+git clone <repo-url>
+cd streaming_service_analysis_churn
 
-# Instalar dependências
-pip install -r requirements.txt
+# Subir infraestrutura completa
+docker-compose up -d
+
+# Executar pipeline de treinamento
+docker exec -it churn_trainer python main.py --mode full
 ```
 
-### 2. Ciclo de Vida do Modelo (Treino e Promoção)
-O comando abaixo executa o pipeline completo: carrega dados, treina, valida métricas e, se aprovado, promove o modelo para o estágio de `Production` no MLflow.
-```bash
-python main.py --mode full
-```
+### 2. Acesso às Interfaces
 
-### 3. Monitoramento e Dashboard
-Para visualizar as métricas de todos os experimentos e as versões do modelo:
-```bash
-mlflow ui --backend-store-uri sqlite:///mlflow.db
-```
+| Serviço | URL | Descrição |
+|:---|:---|:---|
+| **MLflow UI** | http://localhost:5000 | Experiments, runs e model registry |
+| **Dashboard** | http://localhost:8501 | Interface operacional com SHAP |
+| **Modelo API** | `http://mlflow:5000` | Endpoint interno para predições |
 
-Para abrir o Painel de Controle e gerar a **Lista de Alvos**:
+### 3. Ciclo de Vida do Modelo
+
 ```bash
-streamlit run app/main_dash.py
+# Treino completo com promoção automática
+docker exec -it churn_trainer python main.py --mode full
+
+# Apenas treino (sem promoção)
+docker exec -it churn_trainer python main.py --mode train
+
+# Apenas promoção do modelo existente
+docker exec -it churn_trainer python main.py --mode promote
+
+# Com otimização de hiperparâmetros (Optuna)
+docker exec -it churn_trainer python main.py --mode full --tune
 ```
 
 ---
 
 ## 🖥️ Interface Operacional
-O dashboard foi desenvolvido para usuários de negócio e analistas de retenção, permitindo:
-1.  **Ajuste de Threshold:** Definir a sensibilidade do risco (ex: focar apenas em quem tem > 80% de chance de sair).
-2.  **Lista de Alvos:** Tabela identificável com `Customer_ID`, `Monthly_Spend` e `Region` para ação imediata.
-3.  **Exportação:** Download da lista de clientes em risco (CSV) para integração com ferramentas de CRM.
 
----
+O dashboard Streamlit oferece:
 
-## 📂 Estrutura do Projeto
-```text
-├── app/               # Interface Streamlit (Dashboard)
-├── data/
-│   └── raw/           # Dados brutos (streaming.csv)
-├── models/
-│   └── artifacts/     # Binários do modelo (.joblib)
-├── src/
-│   ├── config/        # Gestão de YAML (Schemas e Hyperparams)
-│   ├── data/          # Data Loading e Sanitização
-│   ├── features/      # Engenharia de Atributos
-│   ├── models/        # Wrappers do XGBoost
-│   └── pipelines/     # Orquestração de Treino e Promoção
-├── main.py            # Entry point do sistema (CLI)
-└── mlflow.db          # Banco de dados de governança (SQLite)
+### Painel Principal
+1. **KPIs em Tempo Real:** Total de clientes, alto risco, probabilidade média
+2. **Distribuição de Risco:** Histograma interativo com threshold ajustável
+3. **Análise Geográfica:** Risco médio por região
+
+### Lista Tática de Alvos
+- **Filtro de Prioridade:** Slider de threshold (0.0 - 1.0)
+- **Colunas Estratégicas:** Customer_ID, probabilidade, spend, região
+- **Exportação CSV:** Download direto para CRM
+
+### Análise SHAP Individual
+```
+Cliente selecionado: ID-4523
+├── Probabilidade de Churn: 85%
+├── Top 3 Motivos de Risco:
+│   ├── Support_Tickets_Raised: +12% (3 tickets)
+│   ├── Discount_Offered: +8% (0% desconto)
+│   └── Monthly_Spend: +5% (R$ 89,90)
+└── Recomendação: Oferecer desconto de 20% + atendimento prioritário
 ```
 
 ---
 
-## 📈 Próximos Passos
-- [ ] **Dockerização:** Empacotamento em Docker Compose para isolamento total de infraestrutura.
-- [ ] **SHAP Integration:** Adicionar explicabilidade individual para entender os motivos específicos de cada churn.
-- [ ] **API Endpoint:** Criar uma rota FastAPI para consultas externas em tempo real.
+## 📂 Estrutura do Projeto
+
+```text
+streaming_service_analysis_churn/
+├── app/
+│   ├── main_dash.py              # Interface Streamlit (com SHAP)
+│   ├── components.py             # Componentes UI reutilizáveis
+│   └── services.py               # Lógica de negócio
+├── docker/
+│   ├── Dockerfile                # Imagem da aplicação
+│   └── Dockerfile.mlflow         # Imagem do MLflow server
+├── src/
+│   ├── config/
+│   │   └── loader.py             # Gestão de YAML
+│   ├── data/
+│   │   └── data_loader.py        # Sanitização e leakage removal
+│   ├── features/
+│   │   └── feature_engineering.py # Pipeline de FE
+│   ├── models/
+│   │   └── xgboost.py            # Wrapper XGBoost + SHAP
+│   └── pipelines/
+│       ├── train.py              # Pipeline com split temporal
+│       └── promotion.py          # Governança de modelos
+├── data/
+│   └── raw/
+│       └── streaming.csv         # Dataset base
+├── docker-compose.yml            # Orquestração completa
+├── main.py                       # Entry point CLI
+└── requirements.txt              # Dependências
+```
 
 ---
-**Desenvolvido por Ricson Ramos** *Analista de Dados & Engenheiro de Machine Learning* [LinkedIn](https://www.linkedin.com/in/ricsonramos/) | [GitHub](https://github.com/RicsonRamos)
+
+## 🛠️ Tecnologias e Stack
+
+| Categoria | Ferramentas |
+|:---|:---|
+| **Core** | Python 3.12, Pandas, NumPy, Scikit-Learn |
+| **Modelagem** | XGBoost 2.0+ (categorical nativo) |
+| **Explicabilidade** | SHAP, Matplotlib |
+| **MLOps** | MLflow 2.9+ (Tracking, Registry, Artifacts) |
+| **Interface** | Streamlit, Plotly |
+| **Infraestrutura** | Docker, Docker Compose |
+| **Validação** | Split Temporal, ROC-AUC, F1-Score |
+
+---
+
+## 📈 Roadmap e Próximos Passos
+
+- [x] **Split Temporal:** Validação out-of-time implementada
+- [x] **SHAP Integration:** Explicabilidade individual por cliente
+- [x] **Dockerização:** Ambiente completo containerizado
+- [ ] **API FastAPI:** Endpoint REST para predições em tempo real
+- [ ] **A/B Testing:** Framework para testes de modelos em produção
+- [ ] **Drift Detection:** Monitoramento automático de degradação de performance
+- [ ] **Auto-Retraining:** Pipeline de re-treino automático mensal
+
+---
+
+## 👤 Autor
+
+**Ricson Ramos**  
+*Analista de Dados & Engenheiro de Machine Learning*
+
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=flat&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/ricsonramos/)
+[![GitHub](https://img.shields.io/badge/GitHub-100000?style=flat&logo=github&logoColor=white)](https://github.com/RicsonRamos)
+
+---
+
+## 📝 Notas de Versão
+
+### v3.0 (Mar/2026)
+- Implementação de **Split Temporal** para validação realista
+- Integração de **SHAP** para explicabilidade individual
+- **Dockerização** completa com MLflow server dedicado
+- Correção de **data leakage** em variáveis de satisfação
+
+### v2.0 (Fev/2026)
+- Estrutura base com XGBoost e MLflow
+- Dashboard Streamlit operacional
+- Sistema de promoção automática para Production
+
+---
+
+**Licença:** MIT | **Status:** Production Ready ✅

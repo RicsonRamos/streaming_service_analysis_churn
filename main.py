@@ -9,7 +9,6 @@ from src.config.loader import ConfigLoader
 from src.pipelines.train import TrainingPipeline
 from src.pipelines.promotion import ModelPromoter 
 
-# 1. CONFIGURAÇÃO DE LOGGING (Imediata)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -18,39 +17,21 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 def setup_mlflow_env(experiment_name: str):
-    """
-    Configura o Backend Store e o Experimento Ativo.
-    Rigor: Sem isso, as runs caem no ID 0 (Default).
-    """
-    db_path = "sqlite:///mlflow.db"
-    mlflow.set_tracking_uri(db_path)
-    
-    # Define o experimento globalmente para todas as funções subsequentes
+    """Configura a conexão com o servidor de rastreamento."""
+    # CRÍTICO: Usar o servidor MLflow, não SQLite local
+    tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
+    mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment(experiment_name)
-    
-    # Garante diretório de artefatos local
-    Path("mlruns").mkdir(exist_ok=True)
-    
-    logger.info(f"MLflow: URI '{db_path}' | Experimento '{experiment_name}'")
+    logger.info(f"Conectado ao MLflow em: {tracking_uri}")
+    return tracking_uri
 
 def main():
     parser = argparse.ArgumentParser(description="Churn Radar: Pipeline de MLOps")
-    
-    parser.add_argument(
-        "--mode", 
-        choices=["train", "promote", "full"], 
-        default="full",
-        help="Modo de execução: train, promote ou full"
-    )
-    parser.add_argument(
-        "--tune", 
-        action="store_true", 
-        help="Habilitar otimização de hiperparâmetros (Optuna)"
-    )
-    
+    parser.add_argument("--mode", choices=["train", "promote", "full"], default="full")
+    parser.add_argument("--tune", action="store_true", help="Habilitar otimização (Optuna)")
     args = parser.parse_args()
-    
-    # 2. CARGA DE CONFIGURAÇÃO
+
+    # Carga de configuração
     try:
         cfg_loader = ConfigLoader()
         cfg = cfg_loader.load()
@@ -59,13 +40,12 @@ def main():
         logger.error(f"Falha ao carregar configurações: {e}")
         sys.exit(1)
 
-    # 3. INICIALIZAÇÃO DO AMBIENTE MLFLOW
-    setup_mlflow_env(experiment_name)
-    
+    # Inicialização do ambiente MLflow
+    tracking_uri = setup_mlflow_env(experiment_name)
     run_id = None
 
     try:
-        # 4. FASE DE TREINAMENTO
+        # Fase de Treinamento
         if args.mode in ["train", "full"]:
             logger.info("--- FASE 1: TREINAMENTO ---")
             pipeline = TrainingPipeline()
@@ -76,40 +56,32 @@ def main():
             
             logger.info(f"Sucesso: Run {run_id} concluída.")
 
-        # 5. FASE DE PROMOÇÃO (Governança de Modelo)
+        # Fase de Promoção
         if args.mode in ["promote", "full"]:
             logger.info("--- FASE 2: AVALIAÇÃO E PROMOÇÃO ---")
             
-            # Se rodou o treino agora, usa o run_id. Caso contrário, busca a última do banco.
-            target_run = run_id
-            if not target_run:
-                logger.info("Buscando última run disponível no banco SQLite...")
-                try:
-                    last_run = mlflow.search_runs(
-                        experiment_names=[experiment_name],
-                        order_by=["start_time DESC"], 
-                        max_results=1
-                    )
-                    if not last_run.empty:
-                        target_run = last_run.iloc[0].run_id
-                    else:
-                        logger.warning(f"Nenhuma run encontrada para o experimento '{experiment_name}'.")
-                        return
-                except Exception as e:
-                    logger.error(f"Erro ao acessar histórico do MLflow: {e}")
+            if not run_id:
+                logger.info("Buscando última run disponível...")
+                last_runs = mlflow.search_runs(
+                    experiment_names=[experiment_name],
+                    order_by=["start_time DESC"], 
+                    max_results=1
+                )
+                if not last_runs.empty:
+                    run_id = last_runs.iloc[0].run_id
+                else:
+                    logger.warning("Nenhuma run encontrada.")
                     return
 
-            # Executa a lógica de promoção (Check de métricas vs Baseline)
-            promoter = ModelPromoter()
-            success = promoter.evaluate_and_promote(target_run)
-            
+            # Passar tracking_uri para o promoter
+            promoter = ModelPromoter(tracking_uri=tracking_uri)
+            success = promoter.run(run_id=run_id)
+
             if success:
-                logger.info(f"RESULTADO: Modelo da Run {target_run} promovido para PRODUCTION.")
-            else:
-                logger.warning(f"RESULTADO: Promoção negada para a Run {target_run} (Métricas insuficientes).")
+                logger.info(f"RESULTADO: Modelo da Run {run_id} promovido para PRODUCTION.")
 
     except Exception as e:
-        logger.error(f"Erro crítico no fluxo principal: {str(e)}", exc_info=True)
+        logger.error(f"Erro crítico no pipeline: {str(e)}", exc_info=True)
         sys.exit(1)
 
 if __name__ == "__main__":

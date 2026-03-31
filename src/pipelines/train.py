@@ -103,7 +103,7 @@ class TrainingPipeline:
             
             mlflow.sklearn.log_model(
                 sk_model=model_wrapper.model,
-                name="model",
+                artifact_path="model",
                 registered_model_name="Churn-XGB-Prod"
             )
 

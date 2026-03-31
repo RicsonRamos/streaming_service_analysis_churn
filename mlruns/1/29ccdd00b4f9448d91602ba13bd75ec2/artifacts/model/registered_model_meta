@@ -1,2 +1,2 @@
 model_name: Churn-XGB-Prod
-model_version: '12'
+model_version: '2'
