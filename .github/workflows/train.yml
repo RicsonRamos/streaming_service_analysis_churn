@@ -11,7 +11,7 @@ env:
 
 jobs:
   train:
-    name: [TRAIN] Real Pipeline
+    name: "[TRAIN] Real Pipeline"
     runs-on: ubuntu-latest
 
     services:
