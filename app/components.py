@@ -1,5 +1,6 @@
-import streamlit as st
 import plotly.express as px
+import streamlit as st
+
 
 def render_metrics(df):
     """
@@ -10,21 +11,22 @@ def render_metrics(df):
     """
     col1, col2, col3 = st.columns(3)
     total = len(df)
-    high_risk = len(df[df['Risk_Level'] == 'High'])
-    
+    high_risk = len(df[df["Risk_Level"] == "High"])
+
     # Total de Clientes
     col1.metric("Total de Clientes", f"{total}")
-    
+
     # Clientes em Alto Risco
     col2.metric(
-        "Clientes em Alto Risco", 
-        f"{high_risk}", 
-        delta=f"{(high_risk/total)*100:.1f}% da base", 
-        delta_color="inverse"
+        "Clientes em Alto Risco",
+        f"{high_risk}",
+        delta=f"{(high_risk/total)*100:.1f}% da base",
+        delta_color="inverse",
     )
-    
+
     # Probabilidade Média de Churn
     col3.metric("Probabilidade Média", f"{df['Churn_Probability'].mean():.2%}")
+
 
 def render_charts(df):
     """
@@ -41,15 +43,21 @@ def render_charts(df):
     with col1:
         # Histograma de distribuição de risco
         st.plotly_chart(
-            px.histogram(df, x="Churn_Probability", color="Risk_Level", title="Distribuição de Risco"),
-            use_container_width=True
+            px.histogram(
+                df,
+                x="Churn_Probability",
+                color="Risk_Level",
+                title="Distribuição de Risco",
+            ),
+            use_container_width=True,
         )
     with col2:
         # Gráfico de caixa com a distribuição de risco por região
         st.plotly_chart(
             px.box(df, x="Region", y="Churn_Probability", title="Risco por Região"),
-            use_container_width=True
+            use_container_width=True,
         )
+
 
 def render_priority_list(df_high_risk):
     """
@@ -66,10 +74,15 @@ def render_priority_list(df_high_risk):
     else:
         # Ordenação por gravidade
         display_df = df_high_risk.sort_values(by="Churn_Probability", ascending=False)
-        cols = ['Customer_ID', 'Churn_Probability', 'Monthly_Spend', 'Subscription_Length']
-        
+        cols = [
+            "Customer_ID",
+            "Churn_Probability",
+            "Monthly_Spend",
+            "Subscription_Length",
+        ]
+
         st.dataframe(
-            display_df[cols].style.background_gradient(subset=['Churn_Probability'], cmap='Reds'),
+            display_df[cols].style.background_gradient(subset=["Churn_Probability"], cmap="Reds"),
             use_container_width=True,
-            hide_index=True
+            hide_index=True,
         )

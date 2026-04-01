@@ -1,24 +1,23 @@
 """
 XGBoost Model Wrapper.
 
-Encapsulates the XGBoost classifier with custom logic for training, 
+Encapsulates the XGBoost classifier with custom logic for training,
 inference, and integration with project-wide configurations.
 """
 
-import joblib
-import xgboost as xgb
-import pandas as pd
 import logging
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
+import joblib
+import pandas as pd
+import xgboost as xgb
 
 logger = logging.getLogger(__name__)
+
 
 class ChurnXGBoost:
     """
     High-level wrapper for XGBoost churn classification.
-
-    Encapsulates the XGBoost classifier with custom logic for training, 
-    inference, and integration with project-wide configurations.
     """
 
     def __init__(self, cfg: Dict[str, Any]):
@@ -28,24 +27,24 @@ class ChurnXGBoost:
         Args:
             cfg (dict): Global configuration dictionary containing 'hyperparameters'.
         """
-        self.cfg = cfg
-        # Extração de hiperparâmetros com fallback seguro
-        self.params = cfg.get("hyperparameters", {
-            "n_estimators": 100,
-            "max_depth": 6,
-            "learning_rate": 0.1,
-            "random_state": 42
-        })
-        
-        # Habilita o uso de categorias para melhorar a performance
+        self.cfg: Dict[str, Any] = cfg
+        self.params: Dict[str, Any] = cfg.get(
+            "hyperparameters",
+            {
+                "n_estimators": 100,
+                "max_depth": 6,
+                "learning_rate": 0.1,
+                "random_state": 42,
+            },
+        )
+
         self.params["enable_categorical"] = True
-        
         if "eval_metric" not in self.params:
             self.params["eval_metric"] = "logloss"
 
-        self.model = xgb.XGBClassifier(**self.params)
+        self.model: xgb.XGBClassifier = xgb.XGBClassifier(**self.params)
 
-    def train(self, X_train: pd.DataFrame, y_train: pd.Series):
+    def train(self, X_train: pd.DataFrame, y_train: pd.Series) -> None:
         """
         Fits the XGBoost model to the training data.
         """
@@ -59,64 +58,56 @@ class ChurnXGBoost:
         Returns:
             pd.Series: Binary predictions (0/1) for the test set.
         """
-        return self.model.predict(X)
+        return pd.Series(self.model.predict(X), index=X.index)
 
     def predict_proba(self, X: pd.DataFrame) -> pd.Series:
         """
         Predicts churn probability for the positive class (1).
 
-        Garante que a ordem das colunas esteja correta antes da inferência.
-
         Returns:
             pd.Series: Churn probability predictions for the test set.
         """
-        return self.model.predict_proba(X)[:, 1]
+        return pd.Series(self.model.predict_proba(X)[:, 1], index=X.index)
 
     def get_feature_importance(self) -> pd.DataFrame:
         """
         Returns a formatted DataFrame with feature importance scores.
 
-        The importance score is the gain in accuracy of the model if the feature
-        is used in isolation. The feature with the highest importance score is
-        the most informative feature.
-
         Returns:
             pd.DataFrame: DataFrame with feature importance scores.
         """
         importance = self.model.feature_importances_
-        # Obtém os nomes das features diretamente do booster treinado
         features = self.model.get_booster().feature_names
-        
-        # Se o booster não tiver nomes (X for numpy), usa índices f0, f1...
-        fi_df = pd.DataFrame({
-            "feature": features if features else [f"f{i}" for i in range(len(importance))],
-            "importance": importance
-        }).sort_values(by="importance", ascending=False)
-        
+
+        fi_df = pd.DataFrame(
+            {
+                "feature": features if features else [f"f{i}" for i in range(len(importance))],
+                "importance": importance,
+            }
+        ).sort_values(by="importance", ascending=False)
+
         return fi_df
 
-    def save(self, path: str, artifact: dict = None):
+    def save(self, path: str, artifact: Optional[Dict[str, Any]] = None) -> None:
         """
-        Salva o modelo ou um dicionário de artefatos.
+        Saves the model or a dictionary of artifacts.
 
         Args:
             path (str): Path to store the model artifact.
-            artifact (dict, optional): Dicionário de artefatos para salvar
-                ao lado do modelo.
+            artifact (dict, optional): Dictionary of artifacts to save alongside the model.
         """
         try:
-            if artifact:
+            if artifact is not None:
                 joblib.dump(artifact, path)
-                logger.info(f"[INFO] Artefato completo salvo em {path}")
+                logger.info(f"[INFO] Complete artifact saved at {path}")
             else:
-                # Fallback caso receba apenas o modelo (retrocompatibilidade)
                 joblib.dump(self.model, path)
-                logger.info(f"[INFO] Apenas o modelo bruto salvo em {path}")
+                logger.info(f"[INFO] Only the raw model saved at {path}")
         except Exception as e:
-            logger.error(f"Erro ao salvar modelo: {e}")
+            logger.error(f"Error saving model: {e}")
             raise e
 
-    def load(self, path: str):
+    def load(self, path: str) -> Any:
         """
         Loads the full model artifact and restores the internal model object.
 
@@ -124,9 +115,12 @@ class ChurnXGBoost:
             path (str): Path to load the model artifact.
 
         Returns:
-            dict: Dicionário de artefatos carregado.
+            Any: Loaded artifact dictionary or model.
         """
-        artifact = joblib.load(path)
-        self.model = artifact["model"]
-        self.params = artifact.get("params", self.params)
+        artifact: Any = joblib.load(path)
+        if isinstance(artifact, dict) and "model" in artifact:
+            self.model = artifact["model"]
+            self.params = artifact.get("params", self.params)
+        else:
+            self.model = artifact  # backward compatibility
         return artifact

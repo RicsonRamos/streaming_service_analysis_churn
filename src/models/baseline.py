@@ -1,21 +1,22 @@
 """
 Baseline Model Module.
 
-Provides a Zero-Rule (ZeroR) classifier that always predicts the majority 
-class. Used to establish a performance floor and justify the ROI of 
+Provides a Zero-Rule (ZeroR) classifier that always predicts the majority
+class. Used to establish a performance floor and justify the ROI of
 more complex models like XGBoost.
 """
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import accuracy_score
 from sklearn.base import BaseEstimator, ClassifierMixin
+from sklearn.metrics import accuracy_score
+
 
 class BaselineModel(BaseEstimator, ClassifierMixin):
     """
     A Dummy Classifier that always predicts the most frequent class.
-    
-    Serves as the 'constant' baseline to compare against predictive 
+
+    Serves as the 'constant' baseline to compare against predictive
     machine learning models.
     """
 
@@ -54,7 +55,7 @@ class BaselineModel(BaseEstimator, ClassifierMixin):
         """
         if self.majority_class_ is None:
             raise ValueError("Model must be fitted before calling predict.")
-            
+
         return np.full(shape=(X.shape[0],), fill_value=self.majority_class_)
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
@@ -89,7 +90,7 @@ class BaselineModel(BaseEstimator, ClassifierMixin):
         # Impact Calculation: How many churners did the 'guess' ignore?
         total_churners = (y_test == 1).sum()
         # The BaselineModel misses 100% of churners if the majority is 0 (No Churn)
-        missed_churners = total_churners 
+        missed_churners = total_churners
 
         print("-" * 50)
         print("BASELINE MODEL RESULT (THE 'GUESS' APPROACH):")

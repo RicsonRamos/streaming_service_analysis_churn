@@ -1,0 +1,33 @@
+name: PR Quick Check
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  quick-check:
+    name: [PR] Quick Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install minimal deps
+        run: pip install black isort flake8 pytest
+
+      - name: Format
+        run: black --check src/ app/ tests/
+
+      - name: Imports
+        run: isort --check-only src/ app/ tests/
+
+      - name: Lint
+        run: flake8 src/ app/ tests/ --max-line-length=100
+
+      - name: Fast tests
+        run: pytest tests/ -x -q --tb=short
+

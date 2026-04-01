@@ -1,7 +1,9 @@
-import yaml
 import os
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
+
+import yaml
+
 
 class ConfigLoader:
     """Carregador central de configura o nica.
@@ -25,7 +27,7 @@ class ConfigLoader:
         """
         if not self.config_path.exists():
             raise FileNotFoundError(f"Configura o n o encontrada em: {self.config_path}")
-        
+
         with open(self.config_path, "r", encoding="utf-8") as f:
             config = yaml.safe_load(f)
             return config if config else {}

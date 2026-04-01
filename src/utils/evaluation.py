@@ -5,30 +5,29 @@ business metrics, and markdown reporting.
 """
 
 import json
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
 from sklearn.metrics import (
-    roc_auc_score,
-    average_precision_score,
-    f1_score,
-    recall_score,
-    precision_score,
     accuracy_score,
+    average_precision_score,
+    brier_score_loss,
     confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
     roc_curve,
-    brier_score_loss
 )
-
 
 """
 Evaluation Utilities
 Handles metric calculation, threshold optimization,
 business metrics, and markdown reporting.
 """
+
 
 class ModelEvaluator:
     """
@@ -108,10 +107,7 @@ class ModelEvaluator:
                 best_f1 = f1
                 best_t = t
 
-        return {
-            "best_threshold": best_t,
-            "best_f1": best_f1
-        }
+        return {"best_threshold": best_t, "best_f1": best_f1}
 
     # ---------------------------------------------------
     # Lift Metrics
@@ -141,7 +137,7 @@ class ModelEvaluator:
 
         return {
             f"lift_at_{int(top_pct*100)}pct": lift,
-            f"top_{int(top_pct*100)}pct_churn_rate": top_rate
+            f"top_{int(top_pct*100)}pct_churn_rate": top_rate,
         }
 
     # ---------------------------------------------------

@@ -1,24 +1,25 @@
 """
 Data Validation Module.
 
-Defines the contract for customer data using Pydantic schemas to ensure 
+Defines the contract for customer data using Pydantic schemas to ensure
 type safety and business logic compliance before inference.
 """
 
-from pydantic import BaseModel, Field, field_validator, ConfigDict, ValidationError
 from typing import List, Optional
-import pandas as pd
 from collections import Counter
+
+import pandas as pd
+from pydantic import BaseModel, Field, ValidationError, ConfigDict, validator
+
 
 class CustomerSchema(BaseModel):
     """
     Data contract for a single customer record.
     Ensures types and ranges are valid before feature engineering.
     """
+
     model_config = ConfigDict(
-        coerce_numbers_to_str=False, 
-        extra='ignore',  # Ignore extra columns to keep the model focused
-        strict=False 
+        extra="forbid",  # Corrigido: extra em minúsculo
     )
 
     Age: int = Field(gt=17, lt=100)
@@ -28,86 +29,55 @@ class CustomerSchema(BaseModel):
     Gender: str
     Region: str
     Payment_Method: str
-
-    # Note: Engineered features are usually validated after creation
-    # or made optional if validating raw input.
     estimated_LTV: Optional[float] = Field(ge=0, default=0.0)
     Engagement_Score: Optional[float] = Field(ge=0, default=0.0)
 
-    @field_validator('Gender')
+    @validator("Gender")
     @classmethod
     def validate_gender(cls, v: str) -> str:
-        """
-        Validates that gender matches expected categories.
-        
-        Args:
-            v (str): Gender value to validate.
-        
-        Returns:
-            str: Valid gender value.
-        
-        Raises:
-            ValueError: If gender does not match expected categories.
-        """
-        allowed = ['Male', 'Female']
+        allowed = ["Male", "Female"]
         if v not in allowed:
             raise ValueError(f"Gender must be one of {allowed}")
         return v
 
-    @field_validator('Region')
+    @validator("Region")
     @classmethod
     def validate_region(cls, v: str) -> str:
-        """
-        Validates that region matches the training set categories.
-        
-        Args:
-            v (str): Region value to validate.
-        
-        Returns:
-            str: Valid region value.
-        
-        Raises:
-            ValueError: If region does not match expected categories.
-        """
-        allowed = ['North', 'South', 'East', 'West']
+        allowed = ["North", "South", "East", "West"]
         if v not in allowed:
             raise ValueError(f"Region '{v}' is not supported.")
         return v
 
+
 def validate_dataframe(df: pd.DataFrame) -> bool:
     """
     Validates a pandas DataFrame against the CustomerSchema.
-    
+
     Args:
         df (pd.DataFrame): Data to validate.
 
     Returns:
         bool: True if all records are valid, False otherwise.
     """
-    errors = []
-    sample_details = []
+    errors: List[str] = []
+    sample_details: List[str] = []
 
-    # Record conversion for bulk validation
     records = df.to_dict(orient="records")
-
     for i, record in enumerate(records):
         try:
-            CustomerSchema(**record)
+            CustomerSchema(**record)  # Corrigido: sem aspas
         except ValidationError as e:
-            # Capture the specific field that failed
             for error in e.errors():
-                loc = error['loc'][0]
-                msg = error['msg']
+                loc = error["loc"][0]
+                msg = error["msg"]
                 errors.append(f"Field '{loc}': {msg}")
-                
             if len(sample_details) < 3:
                 sample_details.append(f"Row {i} failure: {e.json()}")
 
     if errors:
         print("\nDATA VALIDATION REPORT")
         print("-" * 35)
-        error_summary = Counter(errors)
-        for err, count in error_summary.items():
+        for err, count in Counter(errors).items():
             print(f"- {count} occurrences of: {err}")
 
         if sample_details:

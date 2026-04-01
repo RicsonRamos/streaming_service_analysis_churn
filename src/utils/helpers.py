@@ -1,8 +1,10 @@
 """
 Miscellaneous helper functions for system operations.
 """
+
 import time
 from functools import wraps
+
 
 def timer(func):
     """
@@ -25,6 +27,7 @@ def timer(func):
         # Code to be timed
         pass
     """
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         # Record the start time
@@ -37,4 +40,5 @@ def timer(func):
         print(f"[TIMER] {func.__name__} took {duration:.2f} seconds.")
         # Return the result
         return result
+
     return wrapper

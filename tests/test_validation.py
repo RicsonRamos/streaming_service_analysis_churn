@@ -3,9 +3,11 @@ Unit tests for Data Validation logic.
 Ensures the Pydantic schema correctly filters out corrupt or illogical data.
 """
 
-import pytest
 import pandas as pd
+import pytest
+
 from src.features.validation import validate_dataframe
+
 
 @pytest.fixture
 def base_valid_row():
@@ -18,24 +20,25 @@ def base_valid_row():
     """
     return {
         # Age must be between 17 and 100
-        'Age': 30,
+        "Age": 30,
         # Subscription length must be at least 1
-        'Subscription_Length': 12,
+        "Subscription_Length": 12,
         # Monthly spend must be greater than 0
-        'Monthly_Spend': 50.0,
+        "Monthly_Spend": 50.0,
         # Support tickets raised must be at least 0
-        'Support_Tickets_Raised': 1,
+        "Support_Tickets_Raised": 1,
         # Estimated LTV is a calculated value
-        'Estimated_LTV': 600.0,
+        "Estimated_LTV": 600.0,
         # Engagement score is a calculated value
-        'Engagement_Score': 5.0,
+        "Engagement_Score": 5.0,
         # Gender must be one of 'Male', 'Female'
-        'Gender': 'Male',
+        "Gender": "Male",
         # Region must be one of 'North', 'South'
-        'Region': 'North',
+        "Region": "North",
         # Payment method must be one of 'Credit Card', 'PayPal'
-        'Payment_Method': 'Credit Card'
+        "Payment_Method": "Credit Card",
     }
+
 
 def test_validate_dataframe_accepts_good_data(base_valid_row):
     """
@@ -47,21 +50,23 @@ def test_validate_dataframe_accepts_good_data(base_valid_row):
     df = pd.DataFrame([base_valid_row])
     assert validate_dataframe(df) is True
 
+
 def test_validate_dataframe_rejects_out_of_range_age(base_valid_row):
     """
     Checks the 'gt=17, lt=100' constraint on the 'Age' column.
-    
+
     Ensures that the validation logic correctly filters out data that
     is outside of the expected range.
     """
     # Test upper bound
-    bad_data_old = pd.DataFrame([{**base_valid_row, 'Age': 150}])
+    bad_data_old = pd.DataFrame([{**base_valid_row, "Age": 150}])
     # Test lower bound
-    bad_data_young = pd.DataFrame([{**base_valid_row, 'Age': 5}])
-    
+    bad_data_young = pd.DataFrame([{**base_valid_row, "Age": 5}])
+
     # The validation logic should reject data that is outside of the expected range
     assert validate_dataframe(bad_data_old) is False
     assert validate_dataframe(bad_data_young) is False
+
 
 def test_validate_dataframe_rejects_invalid_categorical_values(base_valid_row):
     """
@@ -75,13 +80,14 @@ def test_validate_dataframe_rejects_invalid_categorical_values(base_valid_row):
     invalid categorical values.
     """
     # Invalid Gender
-    bad_gender = pd.DataFrame([{**base_valid_row, 'Gender': 'Robot'}])
+    bad_gender = pd.DataFrame([{**base_valid_row, "Gender": "Robot"}])
     # Invalid Region (Not in our whitelist)
-    bad_region = pd.DataFrame([{**base_valid_row, 'Region': 'Mars'}])
-    
+    bad_region = pd.DataFrame([{**base_valid_row, "Region": "Mars"}])
+
     # The validation logic should reject data with invalid categorical values
     assert validate_dataframe(bad_gender) is False, "Invalid Gender should be rejected"
     assert validate_dataframe(bad_region) is False, "Invalid Region should be rejected"
+
 
 def test_validate_dataframe_rejects_negative_values(base_valid_row):
     """
@@ -90,13 +96,14 @@ def test_validate_dataframe_rejects_negative_values(base_valid_row):
     The validation logic should reject data with negative values.
     """
     # Test negative spend
-    bad_spend = pd.DataFrame([{**base_valid_row, 'Monthly_Spend': -10.0}])
+    bad_spend = pd.DataFrame([{**base_valid_row, "Monthly_Spend": -10.0}])
     # Test negative length
-    bad_length = pd.DataFrame([{**base_valid_row, 'Subscription_Length': 0}])
-    
+    bad_length = pd.DataFrame([{**base_valid_row, "Subscription_Length": 0}])
+
     # The validation logic should reject data with negative values
     assert validate_dataframe(bad_spend) is False, "Negative spend should be rejected"
     assert validate_dataframe(bad_length) is False, "Negative length should be rejected"
+
 
 def test_validate_dataframe_handles_mixed_batch(base_valid_row):
     """
@@ -107,10 +114,7 @@ def test_validate_dataframe_handles_mixed_batch(base_valid_row):
     record fails the validation rules.
     """
     # Create a batch with one good record and one bad record
-    mixed_data = pd.DataFrame([
-        base_valid_row,                # Good
-        {**base_valid_row, 'Age': 200} # Bad
-    ])
-    
+    mixed_data = pd.DataFrame([base_valid_row, {**base_valid_row, "Age": 200}])  # Good  # Bad
+
     # The validation logic should reject the entire batch if any record fails
     assert validate_dataframe(mixed_data) is False

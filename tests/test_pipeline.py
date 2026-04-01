@@ -1,5 +1,6 @@
 from src.pipelines.train import TrainingPipeline
 
+
 def test_pipeline_runs():
     """
     Testa se o pipeline de treinamento executa corretamente e retorna um dicionário com as métricas e o caminho do modelo treinado.

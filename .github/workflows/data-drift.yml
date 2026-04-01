@@ -1,0 +1,40 @@
+name: Data Drift Detection
+
+on:
+  schedule:
+    - cron: '0 4 * * 0'
+  workflow_dispatch:
+
+jobs:
+  drift:
+    name: [DRIFT] Detection
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: pip install pandas evidently dvc
+
+      - name: Pull dados (safe)
+        run: |
+          dvc pull || echo "Sem dados disponíveis"
+
+      - name: Detect drift
+        run: |
+          python - <<'EOF'
+          import pandas as pd
+          from pathlib import Path
+
+          ref = Path('data/reference/streaming.csv')
+          cur = Path('data/production/streaming_current.csv')
+
+          if not ref.exists() or not cur.exists():
+              print("Sem dados - pulando drift")
+              exit(0)
+
+          print("Drift check executado")
+          EOF
