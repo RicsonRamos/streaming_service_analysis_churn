@@ -11,7 +11,7 @@ env:
 jobs:
 
   code-quality:
-    name: [CHECK] Code Quality
+    name: "[CHECK] Code Quality"
     runs-on: ubuntu-latest
     
     steps:
@@ -30,7 +30,7 @@ jobs:
       - run: pytest tests/ -q
 
   mock-data:
-    name: [TEST] Mock Data
+    name: "[TEST] Mock Data"
     runs-on: ubuntu-latest
     needs: code-quality
 
@@ -59,7 +59,7 @@ jobs:
           EOF
 
   mock-train:
-    name: [TEST] Mock Training
+    name: "[TEST] Mock Training"
     runs-on: ubuntu-latest
     needs: mock-data
 
@@ -87,7 +87,7 @@ jobs:
           EOF
 
   docker-build:
-    name: [DOCKER] Build
+    name: "[DOCKER] Build"
     runs-on: ubuntu-latest
     needs: mock-train
 
