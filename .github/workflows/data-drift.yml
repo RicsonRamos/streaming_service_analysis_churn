@@ -7,7 +7,7 @@ on:
 
 jobs:
   drift:
-    name: [DRIFT] Detection
+    name: "[DRIFT] Detection"
     runs-on: ubuntu-latest
 
     steps:
