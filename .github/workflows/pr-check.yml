@@ -6,7 +6,7 @@ on:
 
 jobs:
   quick-check:
-    name: [PR] Quick Validation
+    name: "[PR] Quick Validation"
     runs-on: ubuntu-latest
     
     steps:
@@ -30,4 +30,3 @@ jobs:
 
       - name: Fast tests
         run: pytest tests/ -x -q --tb=short
-
