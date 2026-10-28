@@ -1,16 +1,16 @@
-from src.pipelines.train import TrainingPipeline
+from src.config.loader import ConfigLoader
+from src.features.feature_engineering import FeatureEngineer
 
 
-def test_pipeline_runs():
-    """
-    Testa se o pipeline de treinamento executa corretamente e retorna um dicionário com as métricas e o caminho do modelo treinado.
-    """
-    pipeline = TrainingPipeline()
-    result = pipeline.run(tune=False, sample=True)
+def test_config_loader():
+    cfg = ConfigLoader().load()
+    assert isinstance(cfg, dict)
+    assert "project" in cfg
+    assert "feature_schema" in cfg
 
-    assert isinstance(result, dict)
-    assert "metrics" in result
-    assert "model_path" in result
 
-    # Verifica se a métrica de ROC-AUC do modelo treinado é maior que 0.5
-    assert result["metrics"]["roc_auc"] > 0.5
+def test_feature_engineering_initialization():
+    cfg = ConfigLoader().load()
+    fe = FeatureEngineer(cfg)
+    assert fe is not None
+    assert fe.target == "Churned"

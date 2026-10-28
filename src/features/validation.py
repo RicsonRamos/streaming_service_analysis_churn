@@ -9,7 +9,7 @@ from typing import List, Optional
 from collections import Counter
 
 import pandas as pd
-from pydantic import BaseModel, Field, ValidationError, ConfigDict, validator
+from pydantic import BaseModel, Field, ValidationError, ConfigDict, field_validator
 
 
 class CustomerSchema(BaseModel):
@@ -19,7 +19,7 @@ class CustomerSchema(BaseModel):
     """
 
     model_config = ConfigDict(
-        extra="forbid",  # Corrigido: extra em minúsculo
+        extra="ignore",
     )
 
     Age: int = Field(gt=17, lt=100)
@@ -32,7 +32,7 @@ class CustomerSchema(BaseModel):
     estimated_LTV: Optional[float] = Field(ge=0, default=0.0)
     Engagement_Score: Optional[float] = Field(ge=0, default=0.0)
 
-    @validator("Gender")
+    @field_validator("Gender")
     @classmethod
     def validate_gender(cls, v: str) -> str:
         allowed = ["Male", "Female"]
@@ -40,7 +40,7 @@ class CustomerSchema(BaseModel):
             raise ValueError(f"Gender must be one of {allowed}")
         return v
 
-    @validator("Region")
+    @field_validator("Region")
     @classmethod
     def validate_region(cls, v: str) -> str:
         allowed = ["North", "South", "East", "West"]

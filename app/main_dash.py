@@ -159,7 +159,7 @@ if model and not df_raw.empty:
             )
 
         with col_shap2:
-            st.subheader(f"Contribuição das Features")
+            st.subheader("Contribuição das Features")
 
             # Waterfall plot para o cliente selecionado
             fig, ax = plt.subplots(figsize=(10, 6))

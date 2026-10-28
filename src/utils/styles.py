@@ -33,7 +33,6 @@ def get_risk_color(probability: float, threshold: float = 0.7) -> str:
     return PALETTE["low_risk"]
 
 
-import matplotlib.pyplot as plt
 
 CHART_THEME = {
     "bg_color": "#0E1117",

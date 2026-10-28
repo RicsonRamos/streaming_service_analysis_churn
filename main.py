@@ -3,7 +3,6 @@ import logging
 import sys
 import os
 import mlflow
-from pathlib import Path
 
 from src.config.loader import ConfigLoader
 from src.pipelines.train import TrainingPipeline

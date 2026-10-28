@@ -46,5 +46,10 @@ testpaths = ["tests"]
 addopts = "-v"
 
 [tool.ruff]
-line-length = 88
+line-length = 100
 target-version = "py310"
+extend-exclude = ["notebooks", ".venv", "mlruns", "data"]
+
+[tool.ruff.lint]
+select = ["E", "F"]
+ignore = ["E501"]
